@@ -1387,6 +1387,97 @@ static int speedffb(int ffRaw) {
 
 static void FFBGameEffects(EffectConstants* constants, Helpers* helpers, EffectTriggers* triggers, int stateFFB, LPCSTR name)
 {
+
+	if (RunningFFB == VirtuaRacingActive) //Virtua Racing
+	{
+		if (name == digit0)
+		{
+			// Umschalter für Constant / ConstantInf
+			auto sendConstant = [&](int direction, double strength)
+				{
+					if (UseConstantInf)
+						triggers->ConstantInf(direction, strength);
+					else
+						triggers->Constant(direction, strength);
+				};
+
+			helpers->log("got value: ");
+			std::string ffs = std::to_string(stateFFB);
+			helpers->log((char*)ffs.c_str());
+
+			if ((stateFFB == 0x03) || (stateFFB == 0x07) || (stateFFB == 0x09) || (stateFFB == 0x10))
+			{
+				if (stateFFB == 0x07)
+					DontSineUntilRaceStart = true;
+				if (stateFFB == 0x09)
+					DontSineUntilRaceStart = false;
+
+				double percentForce = 0.8;
+				triggers->Spring(percentForce);
+
+				// Stop Constant (egal welche Variante)
+				sendConstant(constants->DIRECTION_FROM_LEFT, 0.0);
+			}
+
+			if (stateFFB == 0x20 || stateFFB == 0x28) //Clutch
+			{
+				double percentForce = 0.4;
+				triggers->Friction(percentForce);
+
+				sendConstant(constants->DIRECTION_FROM_LEFT, 0.0);
+			}
+
+			if (stateFFB > 0x2F && stateFFB < 0x40) //Centering
+			{
+				double percentForce = (stateFFB - 47) / 11.0;
+				triggers->Spring(percentForce);
+
+				sendConstant(constants->DIRECTION_FROM_LEFT, 0.0);
+			}
+
+			if (stateFFB == 0x40 || stateFFB == 0x46 || stateFFB == 0x4A) //Uncentering
+			{
+				if (stateFFB == 0x40)
+				{
+					double percentForce = 0.4;
+					triggers->Rumble(percentForce, percentForce, 100);
+					triggers->Sine(70, 30, percentForce);
+				}
+				else
+				{
+					if (DontSineUntilRaceStart)
+					{
+						double percentForce = 0.4;
+						triggers->Rumble(percentForce, percentForce, 100);
+						triggers->Sine(70, 30, percentForce);
+					}
+				}
+
+				sendConstant(constants->DIRECTION_FROM_LEFT, 0.0);
+			}
+
+			if (stateFFB == 0x50 || stateFFB == 0x5F) //Roll Left
+			{
+				double percentForce = 0.5;
+				triggers->Rumble(0, percentForce, 100);
+
+				sendConstant(constants->DIRECTION_FROM_RIGHT, percentForce);
+			}
+			else if (stateFFB == 0x60 || stateFFB == 0x6F) //Roll Right
+			{
+				double percentForce = 0.5;
+				triggers->Rumble(percentForce, 0, 100);
+
+				sendConstant(constants->DIRECTION_FROM_LEFT, percentForce);
+			}
+			else if (stateFFB != 0x50 && stateFFB != 0x5F && stateFFB != 0x60 && stateFFB != 0x6F)
+			{
+				// Stop Constant
+				sendConstant(constants->DIRECTION_FROM_LEFT, 0.0);
+			}
+		}
+	}
+
 	if (RunningFFB == Daytona2Active) //Daytona 2,Scud Race & LeMans
 	{
 		if (name == RawDrive)
