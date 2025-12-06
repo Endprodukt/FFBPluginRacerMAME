@@ -253,6 +253,9 @@ std::string racingj2a("racingj2a");
 std::string racingj2e("racingj2e");
 std::string racingj2u("racingj2u");
 std::string racingj2j("racingj2j");
+std::string overrev("overrev");
+std::string overrevb("overrevb");
+std::string overrevba("overrevba");
 
 //Flycast Below
 std::string InitialDVer1("INITIAL D\n");
@@ -2829,6 +2832,24 @@ void MAMESupermodel::FFBLoop(EffectConstants* constants, Helpers* helpers, Effec
 				ForceSpringStrength = ForceSpringStrengthDaytona2;
 
 				RunningFFB = "Daytona2Active";
+			}
+
+			if (romname == overrev || romname == overrevba || romname == overrevb)
+			{
+				configMinForce = configMinForceOverRev;
+				configMaxForce = configMaxForceOverRev;
+				configAlternativeMinForceLeft = configAlternativeMinForceLeftOverRev;
+				configAlternativeMaxForceLeft = configAlternativeMaxForceLeftOverRev;
+				configAlternativeMinForceRight = configAlternativeMinForceRightOverRev;
+				configAlternativeMaxForceRight = configAlternativeMaxForceRightOverRev;
+				configFeedbackLength = configFeedbackLengthOverRev;
+				PowerMode = PowerModeOverRev;
+				EnableForceSpringEffect = EnableForceSpringEffectOverRev;
+				ForceSpringStrength = ForceSpringStrengthOverRev;
+				EnableDamper = EnableDamperOverRev;
+				DamperStrength = DamperStrengthOverRev;
+
+				RunningFFB = "m2new";
 			}
 
 			if (romname == scud || romname == scuda || romname == scudau || romname == scuddx|| romname == scudj || romname == scudplus || romname == scudplusa)
