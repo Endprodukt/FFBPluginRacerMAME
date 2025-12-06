@@ -1506,7 +1506,7 @@ static void FFBGameEffects(EffectConstants* constants, Helpers* helpers, EffectT
 		}
 	}
 
-	void(*Constant)(int direction, double strength);
+	//void(*Constant)(int direction, double strength);
 
 	if (RunningFFB == RacingFullValueActive1) // Mame games using all values 
 	{
@@ -4476,7 +4476,7 @@ void MAMESupermodel::FFBLoop(EffectConstants* constants, Helpers* helpers, Effec
 			}
 		}
 
-		if (RunningFFB == RaveRacerActive) //Rave Racer
+		if (RunningFFB == RaveRacerActive) // Rave Racer
 		{
 			if (!PatternFind)
 			{
@@ -4516,19 +4516,32 @@ void MAMESupermodel::FFBLoop(EffectConstants* constants, Helpers* helpers, Effec
 				std::string ffs = std::to_string(ffrave);
 				helpers->log((char*)ffs.c_str());
 
+				// Umschalter für Constant / ConstantInf
+				auto sendConstant = [&](int direction, double strength)
+					{
+						if (UseConstantInf)
+							triggers->ConstantInf(direction, strength);
+						else
+							triggers->Constant(direction, strength);
+					};
+
+				// Force nach links (0x3E–0x7B)
 				if ((ffrave > 0x3D) && (ffrave < 0x7C))
 				{
 					double percentForce = (124 - ffrave) / 61.0;
 					double percentLength = 100;
+
 					triggers->Rumble(percentForce, 0, percentLength);
-					triggers->Constant(constants->DIRECTION_FROM_LEFT, percentForce);
+					sendConstant(constants->DIRECTION_FROM_LEFT, percentForce);
 				}
+				// Force nach rechts (0x00–0x3D)
 				else if ((ffrave > 0x00) && (ffrave < 0x3E))
 				{
-					double percentForce = (ffrave) / 61.0;
+					double percentForce = ffrave / 61.0;
 					double percentLength = 100;
+
 					triggers->Rumble(0, percentForce, percentLength);
-					triggers->Constant(constants->DIRECTION_FROM_RIGHT, percentForce);
+					sendConstant(constants->DIRECTION_FROM_RIGHT, percentForce);
 				}
 			}
 		}
@@ -4794,7 +4807,9 @@ void MAMESupermodel::FFBLoop(EffectConstants* constants, Helpers* helpers, Effec
 				}
 				else
 				{
-					if (romname == acedrvrw || romname == acedrive || romname == victlapw || romname == victlap || romname == dirtdash || romname == dirtdasha || romname == dirtdashj)
+					if (romname == acedrvrw || romname == acedrive ||
+						romname == victlapw || romname == victlap ||
+						romname == dirtdash || romname == dirtdasha || romname == dirtdashj)
 					{
 						if (!Scan)
 						{
@@ -4819,27 +4834,38 @@ void MAMESupermodel::FFBLoop(EffectConstants* constants, Helpers* helpers, Effec
 				std::string ffs = std::to_string(FFBNamco);
 				helpers->log((char*)ffs.c_str());
 
+				// Umschalter für Constant / ConstantInf
+				auto sendConstant = [&](int direction, double strength)
+					{
+						if (UseConstantInf)
+							triggers->ConstantInf(direction, strength);
+						else
+							triggers->Constant(direction, strength);
+					};
+
+				// Rechtskraft 0x0000–0x076F
 				if ((FFBNamco >= 0x00) && (FFBNamco < 0x77A))
 				{
 					double percentForce = (FFBNamco / Divide);
 					double percentLength = 100;
+
 					if (percentForce > 1.0)
-					{
 						percentForce = 1.0;
-					}
+
 					triggers->Rumble(0, percentForce, percentLength);
-					triggers->Constant(constants->DIRECTION_FROM_RIGHT, percentForce);
+					sendConstant(constants->DIRECTION_FROM_RIGHT, percentForce);
 				}
+				// Linkskraft 0xF887–0xFFFF
 				else if ((FFBNamco > 0xF886) && (FFBNamco < 0x10000))
 				{
 					double percentForce = ((65536 - FFBNamco) / Divide);
 					double percentLength = 100;
+
 					if (percentForce > 1.0)
-					{
 						percentForce = 1.0;
-					}
+
 					triggers->Rumble(percentForce, 0, percentLength);
-					triggers->Constant(constants->DIRECTION_FROM_LEFT, percentForce);
+					sendConstant(constants->DIRECTION_FROM_LEFT, percentForce);
 				}
 			}
 		}
