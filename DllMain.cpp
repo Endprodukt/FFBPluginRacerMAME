@@ -894,6 +894,7 @@ EffectTriggers t;
 bool CustomStrength = false;
 bool WaitForGame = false;
 bool keepRunning = true;
+bool isConstantEffectRunning = false;
 float wheel = 0.0f;
 
 SDL_Joystick* GameController = NULL;
