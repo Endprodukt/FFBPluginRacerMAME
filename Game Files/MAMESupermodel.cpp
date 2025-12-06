@@ -294,12 +294,16 @@ std::string m2new("m2new");
 std::string RaveRacerNew("RaveRacerNew");
 std::string Konami("Konami");
 
-
 //Names of FFB Outputs
 std::string RawDrive("RawDrive");
 std::string digit0("digit0");
 std::string digit1("digit1");
 std::string wheel("wheel");
+std::string wheel0("wheel0");
+std::string pcboutput0("pcboutput0");
+std::string mcuoutput1("mcuoutput1");
+std::string output0("output0");
+std::string Wheel_Motor_Alt("Wheel_Motor_Alt");
 std::string wheel_motor("wheel_motor");
 std::string lamp1("lamp1");
 std::string led2("led2");
@@ -388,6 +392,8 @@ extern int EnableDamper;
 extern int DamperStrength;
 extern int DoubleConstant;
 extern int DoubleSine;
+
+static int UseConstantInf = GetPrivateProfileInt(TEXT("Settings"), TEXT("UseConstantInf"), 1, settingsFilename);
 
 static int configMinForceDaytona2 = GetPrivateProfileInt(TEXT("Settings"), TEXT("MinForceDaytona2"), 0, settingsFilename);
 static int configMaxForceDaytona2 = GetPrivateProfileInt(TEXT("Settings"), TEXT("MaxForceDaytona2"), 100, settingsFilename);
