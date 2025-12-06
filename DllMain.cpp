@@ -1339,6 +1339,75 @@ void TriggerConstantEffect(int direction, double strength)
 	SDL_HapticRunEffect(haptic, effects.effect_constant_id, 1);
 }
 
+void TriggerConstantInfEffect(int direction, double strength)
+{
+	// Wenn die Kraft zu klein ist, stoppe den Effekt
+	if (strength < 0.001)
+	{
+		if (isConstantEffectRunning)
+		{
+			SDL_HapticStopEffect(haptic, effects.effect_constant_id);
+			isConstantEffectRunning = false;
+		}
+		return;
+	}
+
+	SDL_HapticEffect tempEffect;
+	SDL_memset(&tempEffect, 0, sizeof(SDL_HapticEffect));
+	tempEffect.type = SDL_HAPTIC_CONSTANT;
+	tempEffect.constant.direction.type = SDL_HAPTIC_CARTESIAN;
+	tempEffect.constant.direction.dir[0] = direction;
+	tempEffect.constant.length = configFeedbackLength;
+	tempEffect.constant.delay = 0;
+
+	int confMinForce = configMinForce;
+	int confMaxForce = configMaxForce;
+	if (AlternativeFFB)
+	{
+		if (direction == -1)
+		{
+			confMinForce = configAlternativeMinForceLeft;
+			confMaxForce = configAlternativeMaxForceLeft;
+		}
+		else
+		{
+			confMinForce = configAlternativeMinForceRight;
+			confMaxForce = configAlternativeMaxForceRight;
+		}
+	}
+
+	if (PowerMode)
+		strength = pow(strength, 0.5);
+	if (DoubleConstant)
+	{
+		strength = strength * 2.0;
+		if (strength > 1.0)
+			strength = 1.0;
+	}
+
+	SHORT MinForce = (SHORT)(confMinForce / 100.0 * 32767.0);
+	SHORT MaxForce = (SHORT)(confMaxForce / 100.0 * 32767.0);
+	SHORT range = MaxForce - MinForce;
+	SHORT level = (SHORT)(strength * range + MinForce);
+
+	if (range > 0 && level < 0)
+		level = 32767;
+	else if (range < 0 && level > 0)
+		level = -32767;
+
+	tempEffect.constant.level = level;
+
+	// Aktualisiere IMMER die Parameter
+	SDL_HapticUpdateEffect(haptic, effects.effect_constant_id, &tempEffect);
+
+	// Starte den Effekt nur, wenn er noch nicht läuft
+	if (!isConstantEffectRunning)
+	{
+		SDL_HapticRunEffect(haptic, effects.effect_constant_id, SDL_HAPTIC_INFINITY);
+		isConstantEffectRunning = true;
+	}
+}
+
 void TriggerFrictionEffectWithDefaultOption(double strength, bool isDefault)
 {
 	SDL_HapticEffect tempEffect;
@@ -2381,6 +2450,7 @@ DWORD WINAPI FFBLoop(LPVOID lpParam)
 
 	// assign FFB effects here
 	t.Constant = &TriggerConstantEffect;
+	t.ConstantInf = &TriggerConstantInfEffect;
 	t.Spring = &TriggerSpringEffect;
 	t.Friction = &TriggerFrictionEffect;
 	t.Sine = &TriggerSineEffect;
