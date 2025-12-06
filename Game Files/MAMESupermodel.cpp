@@ -289,6 +289,11 @@ std::string SuperChaseActive("SuperChaseActive");
 std::string MaximumSpeedActive("MaximumSpeedActive");
 std::string InitialDActive("InitialDActive");
 std::string NaomiFFBActive("NaomiFFBActive");
+std::string srallynew("srallynew");
+std::string m2new("m2new");
+std::string RaveRacerNew("RaveRacerNew");
+std::string Konami("Konami");
+
 
 //Names of FFB Outputs
 std::string RawDrive("RawDrive");
