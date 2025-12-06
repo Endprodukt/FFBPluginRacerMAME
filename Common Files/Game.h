@@ -5,6 +5,7 @@
 // struct
 struct EffectTriggers {
 	void(*Constant)(int direction, double strength);
+	void(*ConstantInf)(int direction, double strength);
 	void(*Spring)(double strength);
 	void(*Friction)(double strength);
 	void(*Sine)(UINT16 period, UINT16 fadePeriod, double strength);

@@ -1,4 +1,4 @@
-/*This file is part of FFB Arcade Plugin.
+﻿/*This file is part of FFB Arcade Plugin.
 FFB Arcade Plugin is free software : you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
@@ -29,6 +29,7 @@ along with FFB Arcade Plugin.If not, see < https://www.gnu.org/licenses/>.
 #include <atlcomcli.h>
 #include <TlHelp32.h>
 #include "Config/PersistentValues.h"
+#include "Game Files/SpringEffect.h"
 
 // include all game header files here.
 #include "Game Files/TestGame.h"
@@ -53,6 +54,7 @@ along with FFB Arcade Plugin.If not, see < https://www.gnu.org/licenses/>.
 #include "Game Files/GRIDReal.h"
 #include "Game Files/GRIDCustom.h"
 #include "Game Files/GoldenGun.h"
+//#include "Game Files/Hummer.h"
 #include "Game Files/HummerExtreme.h"
 #include "Game Files/InitialD0v131.h"
 #include "Game Files/InitialD0v211.h"
@@ -894,6 +896,7 @@ EffectTriggers t;
 bool CustomStrength = false;
 bool WaitForGame = false;
 bool keepRunning = true;
+bool isConstantEffectRunning = false; //Neue Bool
 float wheel = 0.0f;
 
 SDL_Joystick* GameController = NULL;
@@ -1086,7 +1089,7 @@ const int HUMMER_EXTREME = 81;
 const int INITIAL_D_THEARCADE_V231 = 82;
 const int WASTELAND_RACERS_2071 = 83;
 const int WMMT_6_RR = 84;
-
+const int HUMMER = 85;
 HINSTANCE Get_hInstance()
 {
 	MEMORY_BASIC_INFORMATION mbi;
@@ -1099,7 +1102,7 @@ void Initialize(int device_index)
 	hlp.log("in initialize");
 	SDL_SetHint(SDL_HINT_JOYSTICK_RAWINPUT, "0");
 	if (SDL_Init(SDL_INIT_JOYSTICK | SDL_INIT_HAPTIC | SDL_INIT_GAMECONTROLLER) < 0)
-	SDL_JoystickEventState(SDL_ENABLE);
+		SDL_JoystickEventState(SDL_ENABLE);
 	SDL_JoystickUpdate();
 	char joystick_guid[256];
 	sprintf(joystick_guid, "%S", deviceGUIDString);
@@ -1266,7 +1269,7 @@ void Initialize(int device_index)
 		tempEffect3.constant.direction.type = SDL_HAPTIC_CARTESIAN;
 		effects.effect_sine_id_device3 = SDL_HapticNewEffect(haptic3, &tempEffect3);
 	}
-	
+
 	// TODO: why don't we just define this as hackFix = true in the other file?
 	// Was there a reason to put it here?
 //	extern bool hackFix;
@@ -1339,6 +1342,74 @@ void TriggerConstantEffect(int direction, double strength)
 	SDL_HapticRunEffect(haptic, effects.effect_constant_id, 1);
 }
 
+void TriggerConstantInfEffect(int direction, double strength)
+{
+	// Wenn die Kraft zu klein ist, stoppe den Effekt
+	if (strength < 0.001)
+	{
+		if (isConstantEffectRunning)
+		{
+			SDL_HapticStopEffect(haptic, effects.effect_constant_id);
+			isConstantEffectRunning = false;
+		}
+		return;
+	}
+
+	SDL_HapticEffect tempEffect;
+	SDL_memset(&tempEffect, 0, sizeof(SDL_HapticEffect));
+	tempEffect.type = SDL_HAPTIC_CONSTANT;
+	tempEffect.constant.direction.type = SDL_HAPTIC_CARTESIAN;
+	tempEffect.constant.direction.dir[0] = direction;
+	tempEffect.constant.length = configFeedbackLength;
+	tempEffect.constant.delay = 0;
+
+	int confMinForce = configMinForce;
+	int confMaxForce = configMaxForce;
+	if (AlternativeFFB)
+	{
+		if (direction == -1)
+		{
+			confMinForce = configAlternativeMinForceLeft;
+			confMaxForce = configAlternativeMaxForceLeft;
+		}
+		else
+		{
+			confMinForce = configAlternativeMinForceRight;
+			confMaxForce = configAlternativeMaxForceRight;
+		}
+	}
+
+	if (PowerMode)
+		strength = pow(strength, 0.5);
+	if (DoubleConstant)
+	{
+		strength = strength * 2.0;
+		if (strength > 1.0)
+			strength = 1.0;
+	}
+
+	SHORT MinForce = (SHORT)(confMinForce / 100.0 * 32767.0);
+	SHORT MaxForce = (SHORT)(confMaxForce / 100.0 * 32767.0);
+	SHORT range = MaxForce - MinForce;
+	SHORT level = (SHORT)(strength * range + MinForce);
+
+	if (range > 0 && level < 0)
+		level = 32767;
+	else if (range < 0 && level > 0)
+		level = -32767;
+
+	tempEffect.constant.level = level;
+
+	// Aktualisiere IMMER die Parameter
+	SDL_HapticUpdateEffect(haptic, effects.effect_constant_id, &tempEffect);
+
+	// Starte den Effekt nur, wenn er noch nicht l�uft
+	if (!isConstantEffectRunning)
+	{
+		SDL_HapticRunEffect(haptic, effects.effect_constant_id, SDL_HAPTIC_INFINITY);
+		isConstantEffectRunning = true;
+	}
+}
 void TriggerFrictionEffectWithDefaultOption(double strength, bool isDefault)
 {
 	SDL_HapticEffect tempEffect;
@@ -1584,7 +1655,7 @@ void TriggerSineEffect(UINT16 period, UINT16 fadePeriod, double strength)
 	}
 
 	// if no strength, we do nothing
-	if (strength <= 0.001) 
+	if (strength <= 0.001)
 		return;
 
 	// we ignore the new effect until the last one is completed, unless the new one is significantly stronger
@@ -1661,7 +1732,7 @@ void TriggerSineEffectDevice2(UINT16 period, UINT16 fadePeriod, double strength)
 	}
 
 	// if no strength, we do nothing
-	if (strength <= 0.001) 
+	if (strength <= 0.001)
 		return;
 
 	// we ignore the new effect until the last one is completed, unless the new one is significantly stronger
@@ -1729,7 +1800,7 @@ void TriggerSineEffectDevice3(UINT16 period, UINT16 fadePeriod, double strength)
 	}
 
 	// if no strength, we do nothing
-	if (strength <= 0.001) 
+	if (strength <= 0.001)
 		return;
 
 	// we ignore the new effect until the last one is completed, unless the new one is significantly stronger
@@ -2067,7 +2138,7 @@ void TriggerSpringEffect(double strength)
 
 int WorkaroundToFixRumble(void* ptr)
 {
-	while (SDL_WaitEvent(&e) != 0){}
+	while (SDL_WaitEvent(&e) != 0) {}
 	return 0;
 }
 
@@ -2303,7 +2374,7 @@ static int StrengthLoopNoWaitEvent()
 				}
 			}
 		}
-	}	
+	}
 	return 0;
 }
 
@@ -2381,6 +2452,7 @@ DWORD WINAPI FFBLoop(LPVOID lpParam)
 
 	// assign FFB effects here
 	t.Constant = &TriggerConstantEffect;
+	t.ConstantInf = &TriggerConstantInfEffect;
 	t.Spring = &TriggerSpringEffect;
 	t.Friction = &TriggerFrictionEffect;
 	t.Sine = &TriggerSineEffect;
@@ -2635,6 +2707,9 @@ DWORD WINAPI FFBLoop(LPVOID lpParam)
 	case SEGA_RACE_TV:
 		game = new SegaRaceTV;
 		break;
+	//case HUMMER:
+	//	game = new Hummer;
+	//	break;
 	case HUMMER_EXTREME:
 		game = new HummerExtreme;
 		break;
@@ -2773,7 +2848,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ulReasonForCall, LPVOID lpReserved)
 			{
 				currentLibrary = lib::winmm;
 				strcat_s(buffer, MAX_PATH, "\\winmm.dll");
-			}	
+			}
 
 			hlp.log(buffer);
 
