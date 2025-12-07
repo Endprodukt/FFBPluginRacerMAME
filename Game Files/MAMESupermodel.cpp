@@ -276,6 +276,7 @@ extern int DoubleConstant;
 extern int DoubleSine;
 
 static int UseConstantInf = GetPrivateProfileInt(TEXT("Settings"), TEXT("UseConstantInf"), 1, settingsFilename);
+static int ReverseDirection = GetPrivateProfileInt(TEXT("Settings"), TEXT("ReverseDirection"), 0, settingsFilename);
 
 static int configMinForceOverRev = GetPrivateProfileInt(TEXT("Settings"), TEXT("MinForceOverRev"), 0, settingsFilename);
 static int configMaxForceOverRev = GetPrivateProfileInt(TEXT("Settings"), TEXT("MaxForceOverRev"), 100, settingsFilename);
@@ -2035,6 +2036,27 @@ DWORD WINAPI ThreadForDaytonaStartEffect(LPVOID lpParam)
 	return 0;
 }
 
+int SwapDirection(int direction)
+{
+	// Wenn INI-Schalter aus: nichts ändern
+	if (!ReverseDirection)
+		return direction;
+
+	// Falls constants noch nicht initialisiert sind, lieber nichts kaputt machen
+	if (!myconstants)
+		return direction;
+
+	// Echte IDs aus EffectConstants benutzen
+	if (direction == myconstants->DIRECTION_FROM_LEFT)
+		return myconstants->DIRECTION_FROM_RIGHT;
+
+	if (direction == myconstants->DIRECTION_FROM_RIGHT)
+		return myconstants->DIRECTION_FROM_LEFT;
+
+	// Alles andere unverändert lassen (z.B. NEUTRAL etc.)
+	return direction;
+}
+
 void MAMESupermodel::FFBLoop(EffectConstants* constants, Helpers* helpers, EffectTriggers* triggers) {
 
 	myconstants = constants;
@@ -3268,9 +3290,11 @@ void MAMESupermodel::FFBLoop(EffectConstants* constants, Helpers* helpers, Effec
 				std::string ffs = std::to_string(ffrave);
 				helpers->log((char*)ffs.c_str());
 
-				// Umschalter für Constant / ConstantInf
+				// --- Richtungsumschalter (Left/Right invertierbar durch INI) ---
 				auto sendConstant = [&](int direction, double strength)
 					{
+						direction = SwapDirection(direction);
+
 						if (UseConstantInf)
 							triggers->ConstantInf(direction, strength);
 						else
