@@ -270,11 +270,8 @@ std::string TheKingOfRoute66("THE KING OF ROUTE66\n");
 std::string SegaDrivingSimulator("SEGA DRIVING SIMULATOR\n");
 
 //Our string to load game from
-std::string M2Active("M2Active");
-std::string M2PatternActive("M2PatternActive");
 std::string Daytona2Active("Daytona2Active");
 std::string DirtDevilsActive("DirtDevilsActive");
-std::string SrallyActive("SrallyActive");
 std::string Srally2Active("Srally2Active");
 std::string VirtuaRacingActive("VirtuaRacingActive");
 std::string HardDrivinActive("HardDrivinActive");
@@ -328,7 +325,7 @@ std::string Player3_Gun_Recoil("Player3_Gun_Recoil");
 std::string P1_Gun_Recoil("P1_Gun_Recoil");
 std::string P2_Gun_Recoil("P2_Gun_Recoil");
 std::string P3_Gun_Recoil("P3_Gun_Recoil");
-std::string P1_gun_recoil("P1_gun_recoil");
+std::string P1_gun_recoil("P1_guWn_recoil");
 std::string P2_gun_recoil("P2_gun_recoil");
 std::string mcuout1("mcuout1");
 std::string Bank_Motor_Speed("Bank_Motor_Speed");
@@ -4663,201 +4660,6 @@ void MAMESupermodel::FFBLoop(EffectConstants* constants, Helpers* helpers, Effec
 
 					triggers->Rumble(0, percentForce, percentLength);
 					sendConstant(constants->DIRECTION_FROM_RIGHT, percentForce);
-				}
-			}
-		}
-
-		if (RunningFFB == M2PatternActive)
-		{
-			if (!PatternFind)
-			{
-				if (!PatternLaunch)
-				{
-					if (romname == daytona || romname == daytonas || romname == daytonase)
-					{
-						Sleep(8000);
-						PatternLaunch = true;
-					}
-
-					if (romname == indy500 || romname == indy500d || romname == indy500to)
-					{
-						if (name == digit1)
-						{
-							if (newstateFFB == 0x3D)
-							{
-								PatternLaunch = true;
-							}
-						}
-					}
-
-					if (romname == sgt24h)
-					{
-						if (name == digit0)
-						{
-							if (newstateFFB == 0x01)
-							{
-								PatternLaunch = true;
-							}
-						}
-					}
-				}
-				else
-				{
-					if (romname == daytona || romname == daytonas || romname == daytonase)
-					{
-						if (!Scan)
-						{
-							CreateThread(NULL, 0, ScanThread, NULL, 0, NULL);
-							Scan = true;
-						}
-
-						if ((UINT8)aAddy2 == 0x05)
-						{
-							FFBAddress = (int)aAddy2 + 0x3D;
-							PatternFind = true;
-						}
-					}
-
-					if (romname == indy500 || romname == indy500d || romname == indy500to)
-					{
-						if (!Scan)
-						{
-							CreateThread(NULL, 0, ScanThread, NULL, 0, NULL);
-							Scan = true;
-						}
-						UINT8 CheckAddy2 = helpers->ReadByte((INT_PTR)aAddy2 + 0x04, false);
-						if (CheckAddy2 == 0x01)
-						{
-							FFBAddress = (INT_PTR)aAddy2 + 0x04;
-							PatternFind = true;
-						}
-					}
-
-					if (romname == sgt24h)
-					{
-						if (!Scan)
-						{
-							CreateThread(NULL, 0, ScanThread, NULL, 0, NULL);
-							Scan = true;
-						}
-
-						UINT8 CheckAddy2 = helpers->ReadByte((INT_PTR)aAddy2 - 0x14, false);
-						if (CheckAddy2 == 0x0C)
-						{
-							FFBAddress = (INT_PTR)aAddy2 + 0x50;
-							PatternFind = true;
-						}
-					}
-				}
-			}
-			else
-			{
-				ff = helpers->ReadByte(FFBAddress, false);
-
-				helpers->log("got value: ");
-				std::string ffs = std::to_string(ff);
-				helpers->log((char*)ffs.c_str());
-
-				if ((ff > 0x09) && (ff < 0x18))
-				{
-					//Spring
-					double percentForce = (ff - 15) / 8.0;
-					double percentLength = 100;
-					triggers->Spring(percentForce);
-				}
-
-				if ((ff > 0x1F) && (ff < 0x28))
-				{
-					//Clutch
-					double percentForce = (ff - 31) / 8.0;
-					double percentLength = 100;
-					triggers->Friction(percentForce);
-				}
-
-				if ((ff > 0x2F) && (ff < 0x3D))
-				{
-					//Centering
-					double percentForce = (ff - 47) / 13.0;
-					double percentLength = 100;
-					triggers->Spring(percentForce);
-				}
-
-				if ((ff > 0x3F) && (ff < 0x48))
-				{
-					//Uncentering
-					double percentForce = (ff - 63) / 8.0;
-					double percentLength = 100;
-					triggers->Sine(40, 0, percentForce);
-					triggers->Rumble(percentForce, percentForce, percentLength);
-				}
-
-				if ((ff > 0x4F) && (ff < 0x58))
-				{
-					//Roll Left
-					double percentForce = (ff - 79) / 8.0;
-					double percentLength = 100;
-					triggers->Rumble(0, percentForce, percentLength);
-					triggers->Constant(constants->DIRECTION_FROM_RIGHT, percentForce);
-				}
-				else if ((ff > 0x5F) && (ff < 0x68))
-				{
-					//Roll Right
-					double percentForce = (ff - 95) / 8.0;
-					double percentLength = 100;
-					triggers->Rumble(percentForce, 0, percentLength);
-					triggers->Constant(constants->DIRECTION_FROM_LEFT, percentForce);
-				}
-			}
-		}
-
-		if (RunningFFB == SrallyActive)
-		{
-			if (!PatternFind)
-			{
-				if (!PatternLaunch)
-				{
-					if (name == digit1)
-					{
-						PatternLaunch = true;
-					}
-				}
-				else
-				{
-					if (!Scan)
-					{
-						CreateThread(NULL, 0, ScanThread, NULL, 0, NULL);
-						Scan = true;
-					}
-
-					UINT8 CheckAddy2 = helpers->ReadByte((INT_PTR)aAddy2 + 0x35, false);
-					if (CheckAddy2 == 0xFF)
-					{
-						FFBAddress = (INT_PTR)aAddy2 + 0x2B;
-						PatternFind = true;
-					}
-				}
-			}
-			else
-			{
-				ff = helpers->ReadByte(FFBAddress, false);
-
-				helpers->log("got value: ");
-				std::string ffs = std::to_string(ff);
-				helpers->log((char*)ffs.c_str());
-
-				if ((ff > 0xBF) && (ff < 0xDF))
-				{
-					double percentForce = (ff - 191) / 31.0;
-					double percentLength = 100;
-					triggers->Rumble(0, percentForce, percentLength);
-					triggers->Constant(constants->DIRECTION_FROM_RIGHT, percentForce);
-				}
-				else if ((ff > 0x7F) && (ff < 0x9F))
-				{
-					double percentForce = (ff - 127) / 31.0;
-					double percentLength = 100;
-					triggers->Rumble(percentForce, 0, percentLength);
-					triggers->Constant(constants->DIRECTION_FROM_LEFT, percentForce);
 				}
 			}
 		}
