@@ -334,7 +334,7 @@ std::string mcuout1("mcuout1");
 std::string Bank_Motor_Speed("Bank_Motor_Speed");
 std::string Bank_Motor_Direction("Bank_Motor_Direction");
 std::string bank_motor_position("bank_motor_position");
-
+std::string genout2("genout2");
 //Flycast
 std::string awffb("awffb");
 std::string midiffb("midiffb");
@@ -1695,17 +1695,26 @@ static void FFBGameEffects(EffectConstants* constants, Helpers* helpers, EffectT
 			std::string ffs = std::to_string(stateFFB);
 			helpers->log((char*)ffs.c_str());
 
-			if (stateFFB > 0xBF && stateFFB < 0xDF)    // Right force
+			// -----------------------------------------
+			//  Force FROM RIGHT (makes wheel move LEFT)
+			//  Range: 0xC0 – 0xDF  (192 – 223)
+			// -----------------------------------------
+			if (stateFFB >= 0xC0 && stateFFB <= 0xDF)
 			{
-				double percentForce = (stateFFB - 191) / 31.0;
+				double percentForce = (stateFFB - 0xC0) / 31.0; // clean linear mapping
 				double percentLength = 100;
 
 				triggers->Rumble(0, percentForce, percentLength);
 				sendConstant(constants->DIRECTION_FROM_RIGHT, percentForce);
 			}
-			else if (stateFFB > 0x7F && stateFFB < 0x9F) // Left force
+
+			// -----------------------------------------
+			//  Force FROM LEFT (makes wheel move RIGHT)
+			//  Range: 0x80 – 0x9F  (128 – 159)
+			// -----------------------------------------
+			else if (stateFFB >= 0x80 && stateFFB <= 0x9F)
 			{
-				double percentForce = (stateFFB - 127) / 31.0;
+				double percentForce = (stateFFB - 0x80) / 31.0; // clean linear mapping
 				double percentLength = 100;
 
 				triggers->Rumble(percentForce, 0, percentLength);
@@ -4241,7 +4250,7 @@ void MAMESupermodel::FFBLoop(EffectConstants* constants, Helpers* helpers, Effec
 
 		if (RunningFFB == RacingActive1) //Outrunners,Turbo Outrun,CBombers,DAxle
 		{
-			if (name == MA_Steering_Wheel_motor || name == upright_wheel_motor || name == Vibration_motor || name == Wheel_vibration || name == Wheel_Vibration)
+			if (name == MA_Steering_Wheel_motor || name == upright_wheel_motor || name == Vibration_motor || name == Wheel_vibration || name == Wheel_Vibration || name == genout2)
 			{
 				helpers->log("P1 value: ");
 				std::string ffs = std::to_string(newstateFFB);
