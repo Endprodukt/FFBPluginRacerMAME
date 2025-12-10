@@ -73,6 +73,7 @@ Ensure either MAME32.dll or MAME64.dll is with FFB Plugin files in MAME folder d
 - Outrun
 - OffRoad Challenge
 - Outrunners
+- Overrev (need to change output mode in service)
 - Power Drift
 - Race Drivin'
 - Racing Jam
@@ -83,7 +84,7 @@ Ensure either MAME32.dll or MAME64.dll is with FFB Plugin files in MAME folder d
 - San Francisco Rush 2049
 - Sega Rally Championship
 - Sega Touring Car Championship
-- Super GT 24h
+- Super GT 24h (output works but analog input is broken)
 - Thrill Drive
 - Turbo Outrun
 - Vapor TRX
