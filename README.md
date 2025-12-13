@@ -78,7 +78,8 @@ Ensure either MAME32.dll or MAME64.dll is with FFB Plugin files in MAME folder d
 - Race Drivin'
 - Racing Jam
 - Racing Jam 2
-- Rave Racer (TURN ON FEEDBACK STEERING IN GAME SETTINGS OR YOU WILL NOT RECIEVE FORCE FEEDBACK)(you can invert the ffb effect in the gui should it be reversed!)
+- Rave Racer (Feedback needs to be activated in the service menu)(you can invert the ffb effect in the gui for standard/deluxe mode)
+- Roads Edge
 - San Francisco Rush
 - San Francisco Rush The Rock
 - San Francisco Rush 2049
@@ -90,4 +91,5 @@ Ensure either MAME32.dll or MAME64.dll is with FFB Plugin files in MAME folder d
 - Vapor TRX
 - Virtua Racing (CHANGE TO UPRIGHT CABINET)
 - Winding Heat
+- Xtreme Rally
 
