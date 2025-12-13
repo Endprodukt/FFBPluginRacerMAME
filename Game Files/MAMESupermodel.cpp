@@ -236,7 +236,7 @@ std::string midnrun("midnrun");
 std::string midnruna("midnruna");
 std::string midnruna2("midnruna2");
 std::string midnrunj("midnrunj");
-std::string roadedge("roadegde");
+std::string roadedge("roadedge");
 std::string xrally("xrally");
 std::string cartfury("cartfury");
 std::string thrilld("thrilld");
@@ -293,6 +293,7 @@ std::string srallynew("srallynew");
 std::string m2new("m2new");
 std::string RaveRacerNew("RaveRacerNew");
 std::string Konami("Konami");
+std::string hng64("hng64");
 
 //Names of FFB Outputs
 std::string RawDrive("RawDrive");
@@ -1758,6 +1759,42 @@ static void FFBGameEffects(EffectConstants* constants, Helpers* helpers, EffectT
 		}
 	}
 
+	if (RunningFFB == hng64)
+	{
+		if (name == wheel || name == wheel_motor)
+		{
+			auto sendConstant = [&](int direction, double strength)
+				{
+					if (UseConstantInf)
+						triggers->ConstantInf(direction, strength);
+					else
+						triggers->Constant(direction, strength);
+				};
+
+			helpers->log("got value: ");
+			std::string ffs = std::to_string(stateFFB);
+			helpers->log((char*)ffs.c_str());
+
+			if (stateFFB >= 193 && stateFFB <= 255)
+			{
+				double percentForce = (stateFFB - 193) / 62.0;
+				double percentLength = 100;
+
+				triggers->Rumble(0, percentForce, percentLength);
+				sendConstant(constants->DIRECTION_FROM_LEFT, percentForce);
+			}
+	
+			else if (stateFFB >= 129 && stateFFB <= 191)
+			{
+				double percentForce = (stateFFB - 129) / 62.0;
+				double percentLength = 100;
+
+				triggers->Rumble(percentForce, 0, percentLength);
+				sendConstant(constants->DIRECTION_FROM_RIGHT, percentForce);
+			}
+		}
+	}
+
 	if (RunningFFB == m2new) // Mame games using all values 
 	{
 		if (name == wheel_motor)
@@ -3071,7 +3108,7 @@ void MAMESupermodel::FFBLoop(EffectConstants* constants, Helpers* helpers, Effec
 				EnableDamper = EnableDamperRoadEdge;
 				DamperStrength = DamperStrengthRoadEdge;
 
-				RunningFFB = "RacingFullValueActive2";
+				RunningFFB = "hng64";
 			}
 
 			if (romname == xrally)
@@ -3089,7 +3126,7 @@ void MAMESupermodel::FFBLoop(EffectConstants* constants, Helpers* helpers, Effec
 				EnableDamper = EnableDamperXRally;
 				DamperStrength = DamperStrengthXRally;
 
-				RunningFFB = "RacingFullValueActive2";
+				RunningFFB = "hng64";
 			}
 
 			if (romname == thrilld || romname == thrillda || romname == thrilldj || romname == thrillde)
