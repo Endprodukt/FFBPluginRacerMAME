@@ -3290,7 +3290,6 @@ void MAMESupermodel::FFBLoop(EffectConstants* constants, Helpers* helpers, Effec
 				std::string ffs = std::to_string(ffrave);
 				helpers->log((char*)ffs.c_str());
 
-				// --- Richtungsumschalter (Left/Right invertierbar durch INI) ---
 				auto sendConstant = [&](int direction, double strength)
 					{
 						direction = SwapDirection(direction);
@@ -3301,7 +3300,6 @@ void MAMESupermodel::FFBLoop(EffectConstants* constants, Helpers* helpers, Effec
 							triggers->Constant(direction, strength);
 					};
 
-				// Force nach links (0x3E–0x7B)
 				if ((ffrave > 0x3D) && (ffrave < 0x7C))
 				{
 					double percentForce = (124 - ffrave) / 61.0;
@@ -3310,7 +3308,7 @@ void MAMESupermodel::FFBLoop(EffectConstants* constants, Helpers* helpers, Effec
 					triggers->Rumble(percentForce, 0, percentLength);
 					sendConstant(constants->DIRECTION_FROM_LEFT, percentForce);
 				}
-				// Force nach rechts (0x00–0x3D)
+				
 				else if ((ffrave > 0x00) && (ffrave < 0x3E))
 				{
 					double percentForce = ffrave / 61.0;
