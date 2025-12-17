@@ -182,11 +182,11 @@ std::string overrevba("overrevba");
 std::string VirtuaRacingActive("VirtuaRacingActive");
 std::string HardDrivinActive("HardDrivinActive");
 std::string NamcoFFBActive("NamcoFFBActive");
+std::string NamcoFFBNew("NamcoFFBNew");
 std::string RacingFullValueActive1("RacingFullValueActive1");
 std::string RacingFullValueActive2("RacingFullValueActive2");
 std::string RacingActive1("RacingActive1");
 std::string RacingActive2("RacingActive2");
-std::string RaveRacerActive("RaveRacerActive");
 std::string OutrunActive("OutrunActive");
 std::string PDriftActive("PDriftActive");
 std::string SuperChaseActive("SuperChaseActive");
@@ -214,6 +214,7 @@ std::string upright_wheel_motor("upright_wheel_motor");
 std::string MA_Steering_Wheel_motor("MA_Steering_Wheel_motor");
 std::string MB_Steering_Wheel_motor("MB_Steering_Wheel_motor");
 std::string mcuout1("mcuout1");
+std::string mcuout3("mcuout3");
 std::string Bank_Motor_Speed("Bank_Motor_Speed");
 std::string Bank_Motor_Direction("Bank_Motor_Direction");
 std::string bank_motor_position("bank_motor_position");
@@ -950,8 +951,124 @@ static int speedffb(int ffRaw) {
 	}
 }
 
+static int raveracer(int ffRaw);
+int SwapDirection(int direction);
+
 static void FFBGameEffects(EffectConstants* constants, Helpers* helpers, EffectTriggers* triggers, int stateFFB, LPCSTR name)
 {
+	if (RunningFFB == NamcoFFBNew)
+	{
+		if (name == wheel_motor)
+		{
+			DWORD FFBNamco = (DWORD)stateFFB;
+
+			helpers->log("got value: ");
+			std::string ffs = std::to_string(FFBNamco);
+			helpers->log((char*)ffs.c_str());
+
+			// Umschalter für Constant / ConstantInf
+			auto sendConstant = [&](int direction, double strength)
+				{
+					if (UseConstantInf)
+						triggers->ConstantInf(direction, strength);
+					else
+						triggers->Constant(direction, strength);
+				};
+
+			// -----------------------------------------
+			// Right force  (0x0000 – 0x076F)
+			// -----------------------------------------
+			if ((FFBNamco >= 0x0000) && (FFBNamco < 0x077A))
+			{
+				double percentForce = (FFBNamco / Divide);
+				double percentLength = 100;
+
+				if (percentForce > 1.0)
+					percentForce = 1.0;
+
+				triggers->Rumble(0, percentForce, percentLength);
+				sendConstant(constants->DIRECTION_FROM_RIGHT, percentForce);
+			}
+			// -----------------------------------------
+			// Left force (0xF887 – 0xFFFF)
+			// -----------------------------------------
+			else if ((FFBNamco > 0xF886) && (FFBNamco < 0x10000))
+			{
+				double percentForce = ((65536 - FFBNamco) / Divide);
+				double percentLength = 100;
+
+				if (percentForce > 1.0)
+					percentForce = 1.0;
+
+				triggers->Rumble(percentForce, 0, percentLength);
+				sendConstant(constants->DIRECTION_FROM_LEFT, percentForce);
+			}
+		}
+	}
+
+	if (RunningFFB == RaveRacerNew) // Rave Racer
+	{
+		// -----------------------------------------
+		// MCU OUT 3 : stop force ONCE when going 0
+		// -----------------------------------------
+		if (name == mcuout3)
+		{
+			if (newstateFFB == 0)
+			{
+				// one-shot kill, do NOT latch anything
+				if (UseConstantInf)
+				{
+					triggers->ConstantInf(constants->DIRECTION_FROM_LEFT, 0.0);
+					triggers->ConstantInf(constants->DIRECTION_FROM_RIGHT, 0.0);
+				}
+				else
+				{
+					triggers->Constant(constants->DIRECTION_FROM_LEFT, 0.0);
+					triggers->Constant(constants->DIRECTION_FROM_RIGHT, 0.0);
+				}
+			}
+		}
+
+		// -----------------------------------------
+		// Native wheel motor output (unchanged logic)
+		// -----------------------------------------
+		if (name == wheel_motor)
+		{
+			UINT8 ffrave = raveracer((UINT8)stateFFB);
+
+			auto sendConstant = [&](int direction, double strength)
+				{
+					direction = SwapDirection(direction);
+
+					if (UseConstantInf)
+						triggers->ConstantInf(direction, strength);
+					else
+						triggers->Constant(direction, strength);
+				};
+
+			// -----------------------------------------
+			// Force FROM LEFT
+			// -----------------------------------------
+			if ((ffrave > 0x3D) && (ffrave < 0x7C))
+			{
+				double percentForce = (124 - ffrave) / 61.0;
+
+				triggers->Rumble(percentForce, 0.0, 100);
+				sendConstant(constants->DIRECTION_FROM_LEFT, percentForce);
+			}
+			// -----------------------------------------
+			// Force FROM RIGHT
+			// -----------------------------------------
+			else if ((ffrave > 0x00) && (ffrave < 0x3E))
+			{
+				double percentForce = ffrave / 61.0;
+
+				triggers->Rumble(0.0, percentForce, 100);
+				sendConstant(constants->DIRECTION_FROM_RIGHT, percentForce);
+			}
+		}
+	}
+
 
 	if (RunningFFB == VirtuaRacingActive) //Virtua Racing
 	{
@@ -1744,11 +1861,6 @@ int __stdcall mame_output(const char* name, int value)
 
 static DWORD WINAPI ScanThread(LPVOID lpParam)
 {
-	if (romname == raveracw || romname == raveracj || romname == raveracja || romname == raverace) //Rave Racer
-	{
-		aAddy2 = PatternScan("\xF8\x89\xC2\x00\x9C\x0B\x40\x05\x64\x38\x05\x64\x39\x36\x14\x74\x07\x14\x73\x07", "xxxxxxxxxxxxxxxxxxxx");
-	}
-
 	if (romname == superchs || romname == superchsj || romname == superchsp || romname == superchsu) //Super Chase Criminal Termination
 	{
 		aAddy2 = PatternScan("\x80\x38\x00\x50\x49\x5A\x05\x70\x11\x01\x4B\x54\x4F", "xxxxxxxxxxxxx");
@@ -1762,265 +1874,44 @@ static DWORD WINAPI ScanThread(LPVOID lpParam)
 	return 0;
 }
 
-static int raveracer(int ffRaw) {
-	switch (ffRaw) {
-		//case 0xFE:
-			//return 128;
-	case 0x7E:
-		return 123;
-		//case 0xBE:
-			//return 126;
-	case 0x3E:
-		return 122;
-	case 0xDE:
-		return 121;
-	case 0x5E:
-		return 120;
-	case 0x9E:
-		return 119;
-	case 0x1E:
-		return 118;
-	case 0xEE:
-		return 117;
-	case 0x6E:
-		return 116;
-	case 0xAE:
-		return 115;
-	case 0xCE:
-		return 114;
-	case 0x2E:
-		return 113;
-	case 0x4E:
-		return 112;
-	case 0x8E:
-		return 111;
-	case 0x0E:
-		return 110;
-	case 0xF6:
-		return 109;
-	case 0x76:
-		return 108;
-	case 0xB6:
-		return 107;
-	case 0x36:
-		return 106;
-	case 0xD6:
-		return 105;
-	case 0x56:
-		return 104;
-	case 0x96:
-		return 103;
-	case 0x16:
-		return 102;
-	case 0xE6:
-		return 101;
-	case 0x66:
-		return 100;
-	case 0xA6:
-		return 99;
-	case 0xC6:
-		return 98;
-	case 0x26:
-		return 97;
-	case 0x46:
-		return 96;
-	case 0x86:
-		return 95;
-	case 0x06:
-		return 94;
-	case 0xFA:
-		return 93;
-	case 0x7A:
-		return 92;
-	case 0xBA:
-		return 91;
-	case 0x3A:
-		return 90;
-	case 0xDA:
-		return 89;
-	case 0x5A:
-		return 88;
-	case 0x9A:
-		return 87;
-	case 0x1A:
-		return 86;
-	case 0xEA:
-		return 85;
-	case 0x6A:
-		return 84;
-	case 0xAA:
-		return 83;
-	case 0xCA:
-		return 82;
-	case 0x2A:
-		return 81;
-	case 0x4A:
-		return 80;
-	case 0x8A:
-		return 79;
-	case 0x0A:
-		return 78;
-	case 0xF2:
-		return 77;
-	case 0x72:
-		return 76;
-	case 0xB2:
-		return 75;
-	case 0x32:
-		return 74;
-	case 0xD2:
-		return 73;
-	case 0x52:
-		return 72;
-	case 0x92:
-		return 71;
-	case 0x12:
-		return 70;
-	case 0xE2:
-		return 69;
-	case 0x62:
-		return 68;
-	case 0xA2:
-		return 67;
-	case 0xC2:
-		return 66;
-	case 0x22:
-		return 65;
-	case 0x42:
-		return 64;
-	case 0x82:
-		return 63;
-	case 0x02:
-		return 62;
+static int raveracer(int ffRaw)
+{
+	static const int map[256] = {
+		/* 0x00 */ -1, -1, 62, -1, 30, -1, 94, -1,
+		/* 0x08 */ 46, -1, 78, -1, 14, -1, 110, -1,
+		/* 0x10 */ 54, -1, 70, -1, 22, -1, 102, -1,
+		/* 0x18 */ 38, -1, 86, -1, 6,  -1, 118, -1,
+		/* 0x20 */ 59, -1, 65, -1, 27, -1, 97, -1,
+		/* 0x28 */ 43, -1, 81, -1, 11, -1, 113, -1,
+		/* 0x30 */ 50, -1, 74, -1, 18, -1, 106, -1,
+		/* 0x38 */ 34, -1, 90, -1, 2,  -1, 122, -1,
+		/* 0x40 */ 60, -1, 64, -1, 28, -1, 96, -1,
+		/* 0x48 */ 44, -1, 80, -1, 12, -1, 112, -1,
+		/* 0x50 */ 52, -1, 72, -1, 20, -1, 104, -1,
+		/* 0x58 */ 36, -1, 88, -1, 4,  -1, 120, -1,
+		/* 0x60 */ 56, -1, 68, -1, 24, -1, 100, -1,
+		/* 0x68 */ 40, -1, 84, -1, 8,  -1, 116, -1,
+		/* 0x70 */ 48, -1, 76, -1, 16, -1, 108, -1,
+		/* 0x78 */ 32, -1, 92, -1, 1,  -1, 123, -1,
+		/* 0x80 */ 61, -1, 63, -1, 29, -1, 95, -1,
+		/* 0x88 */ 45, -1, 79, -1, 13, -1, 111, -1,
+		/* 0x90 */ 53, -1, 71, -1, 21, -1, 103, -1,
+		/* 0x98 */ 37, -1, 87, -1, 5,  -1, 119, -1,
+		/* 0xA0 */ 57, -1, 67, -1, 25, -1, 99,  -1,
+		/* 0xA8 */ 41, -1, 83, -1, 9,  -1, 115, -1,
+		/* 0xB0 */ 49, -1, 75, -1, 17, -1, 107, -1,
+		/* 0xB8 */ 33, -1, 91, -1, -1, -1, -1, -1,
+		/* 0xC0 */ 58, -1, 66, -1, 26, -1, 98,  -1,
+		/* 0xC8 */ 42, -1, 82, -1, 10, -1, 114, -1,
+		/* 0xD0 */ 51, -1, 73, -1, 19, -1, 105, -1,
+		/* 0xD8 */ 35, -1, 89, -1, 3,  -1, 121, -1,
+		/* 0xE0 */ 55, -1, 69, -1, 23, -1, 101, -1,
+		/* 0xE8 */ 39, -1, 85, -1, 7,  -1, 117, -1,
+		/* 0xF0 */ 47, -1, 77, -1, 15, -1, 109, -1,
+		/* 0xF8 */ 31, -1, 93, -1, -1, -1, -1, -1
+	};
 
-
-	case 0x80:
-		return 61;
-	case 0x40:
-		return 60;
-	case 0x20:
-		return 59;
-	case 0xC0:
-		return 58;
-	case 0xA0:
-		return 57;
-	case 0x60:
-		return 56;
-	case 0xE0:
-		return 55;
-	case 0x10:
-		return 54;
-	case 0x90:
-		return 53;
-	case 0x50:
-		return 52;
-	case 0xD0:
-		return 51;
-	case 0x30:
-		return 50;
-	case 0xB0:
-		return 49;
-	case 0x70:
-		return 48;
-	case 0xF0:
-		return 47;
-	case 0x08:
-		return 46;
-	case 0x88:
-		return 45;
-	case 0x48:
-		return 44;
-	case 0x28:
-		return 43;
-	case 0xC8:
-		return 42;
-	case 0xA8:
-		return 41;
-	case 0x68:
-		return 40;
-	case 0xE8:
-		return 39;
-	case 0x18:
-		return 38;
-	case 0x98:
-		return 37;
-	case 0x58:
-		return 36;
-	case 0xD8:
-		return 35;
-	case 0x38:
-		return 34;
-	case 0xB8:
-		return 33;
-	case 0x78:
-		return 32;
-	case 0xF8:
-		return 31;
-	case 0x04:
-		return 30;
-	case 0x84:
-		return 29;
-	case 0x44:
-		return 28;
-	case 0x24:
-		return 27;
-	case 0xC4:
-		return 26;
-	case 0xA4:
-		return 25;
-	case 0x64:
-		return 24;
-	case 0xE4:
-		return 23;
-	case 0x14:
-		return 22;
-	case 0x94:
-		return 21;
-	case 0x54:
-		return 20;
-	case 0xD4:
-		return 19;
-	case 0x34:
-		return 18;
-	case 0xB4:
-		return 17;
-	case 0x74:
-		return 16;
-	case 0xF4:
-		return 15;
-	case 0x0C:
-		return 14;
-	case 0x8C:
-		return 13;
-	case 0x4C:
-		return 12;
-	case 0x2C:
-		return 11;
-	case 0xCC:
-		return 10;
-	case 0xAC:
-		return 9;
-	case 0x6C:
-		return 8;
-	case 0xEC:
-		return 7;
-	case 0x1C:
-		return 6;
-	case 0x9C:
-		return 5;
-	case 0x5C:
-		return 4;
-	case 0xDC:
-		return 3;
-	case 0x3C:
-		return 2;
-		//case 0xBC:
-			//return 3;
-	case 0x7C:
-		return 1;
-		//case 0xFC:
-			//return 1;
-	}
+	return map[ffRaw & 0xFF];
 }
 
 DWORD WINAPI ThreadForOutputs(LPVOID lpParam)
@@ -2766,7 +2657,7 @@ void MAMESupermodel::FFBLoop(EffectConstants* constants, Helpers* helpers, Effec
 				EnableDamper = EnableDamperRaveRacer;
 				DamperStrength = DamperStrengthRaveRacer;
 
-				RunningFFB = "RaveRacerActive";
+				RunningFFB = "RaveRacerNew";
 			}
 
 			if (romname == daytona || romname == daytonas || romname == daytonase)
@@ -3250,76 +3141,6 @@ void MAMESupermodel::FFBLoop(EffectConstants* constants, Helpers* helpers, Effec
 			}
 		}
 
-		if (RunningFFB == RaveRacerActive) // Rave Racer
-		{
-			if (!PatternFind)
-			{
-				if (!PatternLaunch)
-				{
-					if (name == cpuled6)
-					{
-						if (newstateFFB == 1)
-						{
-							Sleep(2000);
-							PatternLaunch = true;
-						}
-					}
-				}
-				else
-				{
-					if (!Scan)
-					{
-						CreateThread(NULL, 0, ScanThread, NULL, 0, NULL);
-						Scan = true;
-					}
-
-					UINT8 CheckAddy2 = helpers->ReadByte((INT_PTR)aAddy2 - 0xDF, false);
-					if (CheckAddy2 == 0xC2)
-					{
-						FFBAddress = (INT_PTR)aAddy2 - 0x1C0;
-						PatternFind = true;
-					}
-				}
-			}
-			else
-			{
-				UINT8 FFB = helpers->ReadByte(FFBAddress, false);
-				UINT8 ffrave = raveracer(FFB);
-
-				helpers->log("got value: ");
-				std::string ffs = std::to_string(ffrave);
-				helpers->log((char*)ffs.c_str());
-
-				auto sendConstant = [&](int direction, double strength)
-					{
-						direction = SwapDirection(direction);
-
-						if (UseConstantInf)
-							triggers->ConstantInf(direction, strength);
-						else
-							triggers->Constant(direction, strength);
-					};
-
-				if ((ffrave > 0x3D) && (ffrave < 0x7C))
-				{
-					double percentForce = (124 - ffrave) / 61.0;
-					double percentLength = 100;
-
-					triggers->Rumble(percentForce, 0, percentLength);
-					sendConstant(constants->DIRECTION_FROM_LEFT, percentForce);
-				}
-				
-				else if ((ffrave > 0x00) && (ffrave < 0x3E))
-				{
-					double percentForce = ffrave / 61.0;
-					double percentLength = 100;
-
-					triggers->Rumble(0, percentForce, percentLength);
-					sendConstant(constants->DIRECTION_FROM_RIGHT, percentForce);
-				}
-			}
-		}
-		
 		if (RunningFFB == SuperChaseActive)
 		{
 			if (!PatternFind)
