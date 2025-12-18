@@ -884,21 +884,41 @@ static UINT8 ff;
 std::string wheelA("wheel");
 
 static int raveracer(int ffRaw);
+static int acedrivertable(int ffRaw);
 int SwapDirection(int direction);
 
 static void FFBGameEffects(EffectConstants* constants, Helpers* helpers, EffectTriggers* triggers, int stateFFB, LPCSTR name)
 {
-	if (RunningFFB == NamcoFFBNew)
+	if (RunningFFB == NamcoFFBNew) // Ace Driver
 	{
+		// -----------------------------------------
+		// MCU OUT 3 : stop force ONCE when going 0
+		// -----------------------------------------
+		if (name == mcuout3)
+		{
+			if (newstateFFB == 0)
+			{
+				if (UseConstantInf)
+				{
+					triggers->ConstantInf(constants->DIRECTION_FROM_LEFT, 0.0);
+					triggers->ConstantInf(constants->DIRECTION_FROM_RIGHT, 0.0);
+				}
+				else
+				{
+					triggers->Constant(constants->DIRECTION_FROM_LEFT, 0.0);
+					triggers->Constant(constants->DIRECTION_FROM_RIGHT, 0.0);
+				}
+			}
+		}
+
+		// -----------------------------------------
+		// Native wheel motor output (Ace Driver)
+		// -----------------------------------------
 		if (name == wheel_motor)
 		{
-			DWORD FFBNamco = (DWORD)stateFFB;
+			// SIGNED force: -62 .. 0 .. +62
+			int fface = acedrivertable((UINT8)stateFFB);
 
-			helpers->log("got value: ");
-			std::string ffs = std::to_string(FFBNamco);
-			helpers->log((char*)ffs.c_str());
-
-			// Umschalter für Constant / ConstantInf
 			auto sendConstant = [&](int direction, double strength)
 				{
 					if (UseConstantInf)
@@ -908,35 +928,36 @@ static void FFBGameEffects(EffectConstants* constants, Helpers* helpers, EffectT
 				};
 
 			// -----------------------------------------
-			// Right force  (0x0000 – 0x076F)
+			// Force FROM LEFT  (positive values)
 			// -----------------------------------------
-			if ((FFBNamco >= 0x0000) && (FFBNamco < 0x077A))
+			if (fface > 0)
 			{
-				double percentForce = (FFBNamco / Divide);
-				double percentLength = 100;
+				double percentForce = fface / 62.0;
 
-				if (percentForce > 1.0)
-					percentForce = 1.0;
-
-				triggers->Rumble(0, percentForce, percentLength);
+				triggers->Rumble(percentForce, 0.0, 100);
 				sendConstant(constants->DIRECTION_FROM_RIGHT, percentForce);
 			}
 			// -----------------------------------------
-			// Left force (0xF887 – 0xFFFF)
+			// Force FROM RIGHT (negative values)
 			// -----------------------------------------
-			else if ((FFBNamco > 0xF886) && (FFBNamco < 0x10000))
+			else if (fface < 0)
 			{
-				double percentForce = ((65536 - FFBNamco) / Divide);
-				double percentLength = 100;
+				double percentForce = (-fface) / 62.0;
 
-				if (percentForce > 1.0)
-					percentForce = 1.0;
-
-				triggers->Rumble(percentForce, 0, percentLength);
+				triggers->Rumble(0.0, percentForce, 100);
 				sendConstant(constants->DIRECTION_FROM_LEFT, percentForce);
+			}
+			// -----------------------------------------
+			// True neutral (only when raw == 0xFF)
+			// -----------------------------------------
+			else
+			{
+				sendConstant(constants->DIRECTION_FROM_LEFT, 0.0);
+				sendConstant(constants->DIRECTION_FROM_RIGHT, 0.0);
 			}
 		}
 	}
+
 
 	if (RunningFFB == RaveRacerNew) // Rave Racer
 	{
@@ -1846,6 +1867,48 @@ static int raveracer(int ffRaw)
 	return map[ffRaw & 0xFF];
 }
 
+static int acedrivertable(int ffRaw)
+{
+	static const int map[256] = {
+		/* 0x00 */  0,   62,  0,  -62,  0,   31,  0,  -31,
+		/* 0x08 */  0,   47,  0,  -47,  0,   15,  0,  -15,
+		/* 0x10 */  0,   55,  0,  -55,  0,   23,  0,  -23,
+		/* 0x18 */  0,   39,  0,  -39,  0,    7,  0,   -7,
+		/* 0x20 */  0,   59,  0,  -59,  0,   27,  0,  -27,
+		/* 0x28 */  0,   43,  0,  -43,  0,   11,  0,  -11,
+		/* 0x30 */  0,   51,  0,  -51,  0,   19,  0,  -19,
+		/* 0x38 */  0,   35,  0,  -35,  0,    3,  0,   -3,
+
+		/* 0x40 */  0,   61,  0,  -61,  0,   29,  0,  -29,
+		/* 0x48 */  0,   45,  0,  -45,  0,   13,  0,  -13,
+		/* 0x50 */  0,   53,  0,  -53,  0,   21,  0,  -21,
+		/* 0x58 */  0,   37,  0,  -37,  0,    5,  0,   -5,
+		/* 0x60 */  0,   57,  0,  -57,  0,   25,  0,  -25,
+		/* 0x68 */  0,   41,  0,  -41,  0,    9,  0,   -9,
+		/* 0x70 */  0,   49,  0,  -49,  0,   17,  0,  -17,
+		/* 0x78 */  0,   33,  0,  -33,  0,    1,  0,   -1,
+
+		/* 0x80 */  0,   62,  0,  -62,  0,   30,  0,  -30,
+		/* 0x88 */  0,   46,  0,  -46,  0,   14,  0,  -14,
+		/* 0x90 */  0,   54,  0,  -54,  0,   22,  0,  -22,
+		/* 0x98 */  0,   38,  0,  -38,  0,    6,  0,   -6,
+		/* 0xA0 */  0,   58,  0,  -58,  0,   26,  0,  -26,
+		/* 0xA8 */  0,   42,  0,  -42,  0,   10,  0,  -10,
+		/* 0xB0 */  0,   50,  0,  -50,  0,   18,  0,  -18,
+		/* 0xB8 */  0,   34,  0,  -34,  0,    2,  0,   -2,
+
+		/* 0xC0 */  0,   60,  0,  -60,  0,   28,  0,  -28,
+		/* 0xC8 */  0,   44,  0,  -44,  0,   12,  0,  -12,
+		/* 0xD0 */  0,   52,  0,  -52,  0,   20,  0,  -20,
+		/* 0xD8 */  0,   36,  0,  -36,  0,    4,  0,   -4,
+		/* 0xE0 */  0,   56,  0,  -56,  0,   24,  0,  -24,
+		/* 0xE8 */  0,   40,  0,  -40,  0,    8,  0,   -8,
+		/* 0xF0 */  0,   48,  0,  -48,  0,   16,  0,  -16,
+		/* 0xF8 */  0,   32,  0,  -32,  0,    0,  0,    0  // 0xFF = true neutral
+	};
+	return map[ffRaw & 0xFF];
+}
+
 DWORD WINAPI ThreadForOutputs(LPVOID lpParam)
 {
 	WinMain(hInstance, hPrevInstance, lpCmdLine, nCmdShow);
@@ -2717,7 +2780,7 @@ void MAMESupermodel::FFBLoop(EffectConstants* constants, Helpers* helpers, Effec
 				EnableDamper = EnableDamperAceDriverVictory;
 				DamperStrength = DamperStrengthAceDriverVictory;
 
-				RunningFFB = "NamcoFFBActive";
+				RunningFFB = "NamcoFFBNew";
 			}
 
 			if (romname == acedrvrw || romname == acedrive)
@@ -2736,7 +2799,7 @@ void MAMESupermodel::FFBLoop(EffectConstants* constants, Helpers* helpers, Effec
 				EnableDamper = EnableDamperAceDriver;
 				DamperStrength = DamperStrengthAceDriver;
 
-				RunningFFB = "NamcoFFBActive";
+				RunningFFB = "NamcoFFBNew";
 			}
 
 			if (enableLogging)
