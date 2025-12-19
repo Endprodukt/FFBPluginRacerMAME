@@ -3197,7 +3197,6 @@ void MAMESupermodel::FFBLoop(EffectConstants* constants, Helpers* helpers, Effec
 				std::string ffs = std::to_string(FFBNamco);
 				helpers->log((char*)ffs.c_str());
 
-				// Umschalter für Constant / ConstantInf
 				auto sendConstant = [&](int direction, double strength)
 					{
 						if (UseConstantInf)
@@ -3206,7 +3205,6 @@ void MAMESupermodel::FFBLoop(EffectConstants* constants, Helpers* helpers, Effec
 							triggers->Constant(direction, strength);
 					};
 
-				// Rechtskraft 0x0000–0x076F
 				if ((FFBNamco >= 0x00) && (FFBNamco < 0x77A))
 				{
 					double percentForce = (FFBNamco / Divide);
@@ -3218,7 +3216,6 @@ void MAMESupermodel::FFBLoop(EffectConstants* constants, Helpers* helpers, Effec
 					triggers->Rumble(0, percentForce, percentLength);
 					sendConstant(constants->DIRECTION_FROM_RIGHT, percentForce);
 				}
-				// Linkskraft 0xF887–0xFFFF
 				else if ((FFBNamco > 0xF886) && (FFBNamco < 0x10000))
 				{
 					double percentForce = ((65536 - FFBNamco) / Divide);
