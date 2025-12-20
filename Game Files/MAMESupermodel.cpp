@@ -836,15 +836,12 @@ static bool EmuName = false;
 static bool RomGameName = false;
 static bool Effect1 = false;
 static bool Effect2 = false;
-static bool Effect3 = false;
 static bool DontSineUntilRaceStart = false;
 static bool HardDrivinFrame = false;
 static bool Motion = false;
 static bool MotionFalse = false;
-static bool StartEffectOnce = false;
 static bool PatternFind = false;
 static bool Scan = false;
-static bool ScanFirstBootDelay = false;
 static bool PatternLaunch = false;
 
 HINSTANCE hInstance;
@@ -875,8 +872,6 @@ int stateFFB;
 int stateFFB2;
 int stateFFB3;
 int stateFFBDevice2;
-int stateFFBDevice3;
-int SineEffectState;
 double Divide;
 static INT_PTR FFBAddress;
 static UINT8 ff;
@@ -1881,13 +1876,6 @@ static int acedrivertable(int ffRaw)
 DWORD WINAPI ThreadForOutputs(LPVOID lpParam)
 {
 	WinMain(hInstance, hPrevInstance, lpCmdLine, nCmdShow);
-	return 0;
-}
-
-DWORD WINAPI ThreadForDaytonaStartEffect(LPVOID lpParam)
-{
-	Sleep(1300);
-	Effect2 = false;
 	return 0;
 }
 
