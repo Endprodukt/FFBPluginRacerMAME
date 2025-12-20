@@ -887,9 +887,6 @@ static int raveracer(int ffRaw);
 static int acedrivertable(int ffRaw);
 int SwapDirection(int direction);
 
-static bool DirtDashMotorEnabled = true;
-
-
 static void FFBGameEffects(EffectConstants* constants, Helpers* helpers, EffectTriggers* triggers, int stateFFB, LPCSTR name)
 {
 	if (RunningFFB == NamcoFFBNew) // Ace Driver
@@ -3160,45 +3157,17 @@ void MAMESupermodel::FFBLoop(EffectConstants* constants, Helpers* helpers, Effec
 		
 		if (RunningFFB == DirtDashFFB)
 		{
-			// -------------------------------------------------
-			// MCU OUT 1 : MOTOR ON / OFF  (HIGHEST PRIORITY)
-			// -------------------------------------------------
-			if (name == mcuout1)
-			{
-				if (newstateFFB == 0)
-				{
-					DirtDashMotorEnabled = false;
-
-					// Hard motor kill (once)
-					triggers->ConstantInf(constants->DIRECTION_FROM_LEFT, 0.0);
-					triggers->ConstantInf(constants->DIRECTION_FROM_RIGHT, 0.0);
-				}
-				else
-				{
-					DirtDashMotorEnabled = true;
-				}
-
-				// IMPORTANT: nothing else may run in this callback
-				return;
-			}
-
-			// -------------------------------------------------
-			// Motor OFF = absolutely no FFB allowed
-			// -------------------------------------------------
-			if (!DirtDashMotorEnabled)
-				return;
-
-			// -------------------------------------------------
-			// Pattern scan / launch logic
-			// -------------------------------------------------
 			if (!PatternFind)
 			{
 				if (!PatternLaunch)
 				{
-					if (name == cpuled6 && newstateFFB == 1)
+					if (name == cpuled6)
 					{
-						Sleep(2000);
-						PatternLaunch = true;
+						if (newstateFFB == 1)
+						{
+							Sleep(2000);
+							PatternLaunch = true;
+						}
 					}
 				}
 				else
@@ -3219,47 +3188,45 @@ void MAMESupermodel::FFBLoop(EffectConstants* constants, Helpers* helpers, Effec
 						}
 					}
 				}
-				return;
 			}
+			else
+			{
+				DWORD FFBNamco = helpers->ReadInt32(FFBAddress, false);
 
-			// -------------------------------------------------
-			// RAM-based FFB (ONLY if motor is enabled)
-			// -------------------------------------------------
-			DWORD FFBNamco = helpers->ReadInt32(FFBAddress, false);
+				helpers->log("got value: ");
+				std::string ffs = std::to_string(FFBNamco);
+				helpers->log((char*)ffs.c_str());
 
-			helpers->log("got value: ");
-			std::string ffs = std::to_string(FFBNamco);
-			helpers->log((char*)ffs.c_str());
+				auto sendConstant = [&](int direction, double strength)
+					{
+						if (UseConstantInf)
+							triggers->ConstantInf(direction, strength);
+						else
+							triggers->Constant(direction, strength);
+					};
 
-			auto sendConstant = [&](int direction, double strength)
+				if ((FFBNamco >= 0x00) && (FFBNamco < 0x77A))
 				{
-					if (UseConstantInf)
-						triggers->ConstantInf(direction, strength);
-					else
-						triggers->Constant(direction, strength);
-				};
+					double percentForce = (FFBNamco / Divide);
+					double percentLength = 100;
 
-			// -----------------------------------------
-			// Force FROM RIGHT
-			// -----------------------------------------
-			if (FFBNamco >= 0x00 && FFBNamco < 0x77A)
-			{
-				double percentForce = FFBNamco / Divide;
-				if (percentForce > 1.0) percentForce = 1.0;
+					if (percentForce > 1.0)
+						percentForce = 1.0;
 
-				triggers->Rumble(0.0, percentForce, 100);
-				sendConstant(constants->DIRECTION_FROM_RIGHT, percentForce);
-			}
-			// -----------------------------------------
-			// Force FROM LEFT
-			// -----------------------------------------
-			else if (FFBNamco > 0xF886 && FFBNamco < 0x10000)
-			{
-				double percentForce = (65536 - FFBNamco) / Divide;
-				if (percentForce > 1.0) percentForce = 1.0;
+					triggers->Rumble(0, percentForce, percentLength);
+					sendConstant(constants->DIRECTION_FROM_RIGHT, percentForce);
+				}
+				else if ((FFBNamco > 0xF886) && (FFBNamco < 0x10000))
+				{
+					double percentForce = ((65536 - FFBNamco) / Divide);
+					double percentLength = 100;
 
-				triggers->Rumble(percentForce, 0.0, 100);
-				sendConstant(constants->DIRECTION_FROM_LEFT, percentForce);
+					if (percentForce > 1.0)
+						percentForce = 1.0;
+
+					triggers->Rumble(percentForce, 0, percentLength);
+					sendConstant(constants->DIRECTION_FROM_LEFT, percentForce);
+				}
 			}
 		}
 
