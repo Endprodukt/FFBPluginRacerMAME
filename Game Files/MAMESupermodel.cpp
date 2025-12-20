@@ -1077,11 +1077,10 @@ static void FFBGameEffects(EffectConstants* constants, Helpers* helpers, EffectT
 		}
 	}
 
-	if (RunningFFB == RacingFullValueActive1) // Mame games using all values 
+	if (RunningFFB == RacingFullValueActive1)
 	{
 		if (name == wheel || name == wheel_motor)
 		{
-			// Umschalter für Constant / ConstantInf
 			auto sendConstant = [&](int direction, double strength)
 				{
 					if (UseConstantInf)
@@ -1094,61 +1093,80 @@ static void FFBGameEffects(EffectConstants* constants, Helpers* helpers, EffectT
 			std::string ffs = std::to_string(stateFFB);
 			helpers->log((char*)ffs.c_str());
 
-			if (stateFFB > 0x80 && stateFFB < 0x100)  // LEFT FORCE
+			if (stateFFB == 0)
 			{
-				double percentForce = (256 - stateFFB) / 126.0;
-				double percentLength = 100;
-
-				triggers->Rumble(percentForce, 0, percentLength);
-				sendConstant(constants->DIRECTION_FROM_LEFT, percentForce);
+				sendConstant(constants->DIRECTION_FROM_LEFT, 0.0);
+				sendConstant(constants->DIRECTION_FROM_RIGHT, 0.0);
+				return;
 			}
-			else if (stateFFB > 0x00 && stateFFB < 0x80)  // RIGHT FORCE
-			{
-				double percentForce = (stateFFB) / 126.0;
-				double percentLength = 100;
-
-				triggers->Rumble(0, percentForce, percentLength);
-				sendConstant(constants->DIRECTION_FROM_RIGHT, percentForce);
-			}
-		}
-	}
-
-	if (RunningFFB == RacingFullValueActive2) // Mame games using all values (reverse direction to above)
-	{
-		if (name == wheel)
-		{
-			// Umschalter für Constant / ConstantInf
-			auto sendConstant = [&](int direction, double strength)
-				{
-					if (UseConstantInf)
-						triggers->ConstantInf(direction, strength);
-					else
-						triggers->Constant(direction, strength);
-				};
-
-			helpers->log("got value: ");
-			std::string ffs = std::to_string(stateFFB);
-			helpers->log((char*)ffs.c_str());
 
 			if (stateFFB > 0x80 && stateFFB < 0x100)
 			{
 				double percentForce = (256 - stateFFB) / 126.0;
-				double percentLength = 100;
+				if (percentForce > 1.0) percentForce = 1.0;
 
-				// reversed rumble direction
-				triggers->Rumble(0, percentForce, percentLength);
+				triggers->Rumble(percentForce, 0, 100);
+				sendConstant(constants->DIRECTION_FROM_LEFT, percentForce);
+			}
+			else if (stateFFB > 0x00 && stateFFB < 0x80)
+			{
+				double percentForce = stateFFB / 126.0;
+				if (percentForce > 1.0) percentForce = 1.0;
 
-				// reversed constant direction
+				triggers->Rumble(0, percentForce, 100);
+				sendConstant(constants->DIRECTION_FROM_RIGHT, percentForce);
+			}
+			else
+			{
+				sendConstant(constants->DIRECTION_FROM_LEFT, 0.0);
+				sendConstant(constants->DIRECTION_FROM_RIGHT, 0.0);
+			}
+		}
+	}
+
+	if (RunningFFB == RacingFullValueActive2)
+	{
+		if (name == wheel)
+		{
+			auto sendConstant = [&](int direction, double strength)
+				{
+					if (UseConstantInf)
+						triggers->ConstantInf(direction, strength);
+					else
+						triggers->Constant(direction, strength);
+				};
+
+			helpers->log("got value: ");
+			std::string ffs = std::to_string(stateFFB);
+			helpers->log((char*)ffs.c_str());
+
+			if (stateFFB == 0)
+			{
+				sendConstant(constants->DIRECTION_FROM_LEFT, 0.0);
+				sendConstant(constants->DIRECTION_FROM_RIGHT, 0.0);
+				return;
+			}
+
+			if (stateFFB > 0x80 && stateFFB < 0x100)
+			{
+				double percentForce = (256 - stateFFB) / 126.0;
+				if (percentForce > 1.0) percentForce = 1.0;
+
+				triggers->Rumble(0, percentForce, 100);
 				sendConstant(constants->DIRECTION_FROM_RIGHT, percentForce);
 			}
 			else if (stateFFB > 0x00 && stateFFB < 0x80)
 			{
-				double percentForce = (stateFFB) / 126.0;
-				double percentLength = 100;
+				double percentForce = stateFFB / 126.0;
+				if (percentForce > 1.0) percentForce = 1.0;
 
-				triggers->Rumble(percentForce, 0, percentLength);
-
+				triggers->Rumble(percentForce, 0, 100);
 				sendConstant(constants->DIRECTION_FROM_LEFT, percentForce);
+			}
+			else
+			{
+				sendConstant(constants->DIRECTION_FROM_LEFT, 0.0);
+				sendConstant(constants->DIRECTION_FROM_RIGHT, 0.0);
 			}
 		}
 	}
@@ -1284,22 +1302,33 @@ static void FFBGameEffects(EffectConstants* constants, Helpers* helpers, EffectT
 			std::string ffs = std::to_string(stateFFB);
 			helpers->log((char*)ffs.c_str());
 
+			if (stateFFB == 0)
+			{
+				sendConstant(constants->DIRECTION_FROM_LEFT, 0.0);
+				sendConstant(constants->DIRECTION_FROM_RIGHT, 0.0);
+				return;
+			}
+
 			if (stateFFB >= 193 && stateFFB <= 255)
 			{
 				double percentForce = (stateFFB - 193) / 62.0;
-				double percentLength = 100;
+				if (percentForce > 1.0) percentForce = 1.0;
 
-				triggers->Rumble(0, percentForce, percentLength);
+				triggers->Rumble(0, percentForce, 100);
 				sendConstant(constants->DIRECTION_FROM_LEFT, percentForce);
 			}
-	
 			else if (stateFFB >= 129 && stateFFB <= 191)
 			{
 				double percentForce = (stateFFB - 129) / 62.0;
-				double percentLength = 100;
+				if (percentForce > 1.0) percentForce = 1.0;
 
-				triggers->Rumble(percentForce, 0, percentLength);
+				triggers->Rumble(percentForce, 0, 100);
 				sendConstant(constants->DIRECTION_FROM_RIGHT, percentForce);
+			}
+			else
+			{
+				sendConstant(constants->DIRECTION_FROM_LEFT, 0.0);
+				sendConstant(constants->DIRECTION_FROM_RIGHT, 0.0);
 			}
 		}
 	}
