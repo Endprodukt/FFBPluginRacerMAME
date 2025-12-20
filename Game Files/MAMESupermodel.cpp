@@ -944,7 +944,6 @@ static void FFBGameEffects(EffectConstants* constants, Helpers* helpers, EffectT
 		}
 	}
 
-
 	if (RunningFFB == RaveRacerNew) // Rave Racer
 	{
 		if (name == mcuout3)
@@ -3157,6 +3156,21 @@ void MAMESupermodel::FFBLoop(EffectConstants* constants, Helpers* helpers, Effec
 		
 		if (RunningFFB == DirtDashFFB)
 		{
+			// --- NEU: Status Variable ---
+			// Wir starten mal mit 1 (Angenommen: Motor ist AN), damit wir nicht tot starten,
+			// falls MAME den Status erst später sendet.
+			static int mcuout1State = 1;
+
+			// Update empfangen
+			if (name == mcuout1)
+			{
+				mcuout1State = newstateFFB;
+
+				// DEBUG: Schreib ins Log, wenn sich der Status ändert
+				std::string debugMsg = "DirtDashFFB: mcuout1 switched to " + std::to_string(mcuout1State);
+				helpers->log((char*)debugMsg.c_str());
+			}
+
 			if (!PatternFind)
 			{
 				if (!PatternLaunch)
@@ -3205,27 +3219,48 @@ void MAMESupermodel::FFBLoop(EffectConstants* constants, Helpers* helpers, Effec
 							triggers->Constant(direction, strength);
 					};
 
-				if ((FFBNamco >= 0x00) && (FFBNamco < 0x77A))
+				// --- KORRIGIERTE LOGIK ---
+				// Wenn mcuout1 auf 0 steht (Relay AUS?), dann alles killen.
+				// Wenn mcuout1 auf 1 steht (Relay AN?), dann Effekte erlauben.
+				if (mcuout1State == 0)
 				{
-					double percentForce = (FFBNamco / Divide);
-					double percentLength = 100;
-
-					if (percentForce > 1.0)
-						percentForce = 1.0;
-
-					triggers->Rumble(0, percentForce, percentLength);
-					sendConstant(constants->DIRECTION_FROM_RIGHT, percentForce);
+					// Kill Switch aktiv
+					triggers->Rumble(0, 0, 0);
+					sendConstant(constants->DIRECTION_FROM_LEFT, 0.0);
+					sendConstant(constants->DIRECTION_FROM_RIGHT, 0.0);
 				}
-				else if ((FFBNamco > 0xF886) && (FFBNamco < 0x10000))
+				else
 				{
-					double percentForce = ((65536 - FFBNamco) / Divide);
-					double percentLength = 100;
+					// Normaler Betrieb (mcuout1State ist 1)
+					if ((FFBNamco >= 0x00) && (FFBNamco < 0x77A))
+					{
+						double percentForce = (FFBNamco / Divide);
+						double percentLength = 100;
 
-					if (percentForce > 1.0)
-						percentForce = 1.0;
+						if (percentForce > 1.0)
+							percentForce = 1.0;
 
-					triggers->Rumble(percentForce, 0, percentLength);
-					sendConstant(constants->DIRECTION_FROM_LEFT, percentForce);
+						triggers->Rumble(0, percentForce, percentLength);
+						sendConstant(constants->DIRECTION_FROM_RIGHT, percentForce);
+					}
+					else if ((FFBNamco > 0xF886) && (FFBNamco < 0x10000))
+					{
+						double percentForce = ((65536 - FFBNamco) / Divide);
+						double percentLength = 100;
+
+						if (percentForce > 1.0)
+							percentForce = 1.0;
+
+						triggers->Rumble(percentForce, 0, percentLength);
+						sendConstant(constants->DIRECTION_FROM_LEFT, percentForce);
+					}
+					else
+					{
+						// Deadzone sicherstellen
+						triggers->Rumble(0, 0, 0);
+						sendConstant(constants->DIRECTION_FROM_LEFT, 0.0);
+						sendConstant(constants->DIRECTION_FROM_RIGHT, 0.0);
+					}
 				}
 			}
 		}
