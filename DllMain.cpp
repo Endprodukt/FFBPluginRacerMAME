@@ -3600,6 +3600,66 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ulReasonForCall, LPVOID lpReserved)
 		hlp.log((char*)processName.c_str());
 		keepRunning = false;
 
+		// --- NEW STARTUP CODE WITH ERROR DIAGNOSTICS ---
+
+		// 1. Get the path of the current module (dinput8.dll)
+		char modulePath[MAX_PATH];
+		if (GetModuleFileNameA(hModule, modulePath, MAX_PATH) != 0)
+		{
+			std::string fullPath = std::string(modulePath);
+
+			// Strip the filename (e.g., "dinput8.dll") to get the directory
+			size_t lastSlash = fullPath.find_last_of("\\/");
+			if (lastSlash != std::string::npos) {
+				fullPath = fullPath.substr(0, lastSlash + 1);
+			}
+
+			// Append the reset tool filename
+			fullPath += "FFBReset.exe";
+
+			hlp.log("Attempting to start reset tool at:");
+			hlp.log((char*)fullPath.c_str());
+
+			// 2. Check if the file actually exists at that path
+			DWORD fileAttr = GetFileAttributesA(fullPath.c_str());
+			if (fileAttr == INVALID_FILE_ATTRIBUTES)
+			{
+				hlp.log("ERROR: FFBReset.exe was not found at the specified path!");
+			}
+			else
+			{
+				// 3. Launch the process
+				STARTUPINFOA si;
+				PROCESS_INFORMATION pi;
+				ZeroMemory(&si, sizeof(si));
+				si.cb = sizeof(si);
+				si.dwFlags = STARTF_USESHOWWINDOW;
+				si.wShowWindow = SW_HIDE; // Start hidden
+				ZeroMemory(&pi, sizeof(pi));
+
+				// Use CreateProcess (safer for launching from DLL detach)
+				// Pass NULL as application name and full path as command line
+				if (CreateProcessA(NULL, (LPSTR)fullPath.c_str(), NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi))
+				{
+					hlp.log("SUCCESS: FFBReset.exe started successfully.");
+
+					// Important: Close handles to prevent leaks, but do NOT wait for the process 
+					// (we want the game to close immediately).
+					CloseHandle(pi.hProcess);
+					CloseHandle(pi.hThread);
+				}
+				else
+				{
+					hlp.log("ERROR: CreateProcess failed. Error Code:");
+					hlp.logInt(GetLastError());
+				}
+			}
+		}
+		else
+		{
+			hlp.log("ERROR: Could not retrieve module path.");
+		}
+
 		if (configGameId == 60)
 			WritePrivateProfileStringA("Settings", "ProcessID", 0, ".\\FFBPlugin.ini");
 
