@@ -16,6 +16,9 @@ This is a plugin to provide Force Feedback and Rumble to various arcade games.
 
 Launch FFBPluginGUI.exe & Go to Setup Help Section. 
 
+All files should be copied to your Mame-Folder. 
+The problem of remaining FFB effects after closing a game has been fixed but it can only detach when closing Mame entirely, not by going back to Mames UI! 
+
 For more advanced information read below
 
 
