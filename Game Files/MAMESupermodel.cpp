@@ -1383,9 +1383,9 @@ static void FFBGameEffects(EffectConstants* constants, Helpers* helpers, EffectT
 			std::string ffs = std::to_string(stateFFB);
 			helpers->log((char*)ffs.c_str());
 
-			int v = (int)stateFFB & 0x1F;  // we only use the last 5 bits (0..31)
+			int v = (int)stateFFB & 0x1F; // Extract the last 5 bits (0..31)
 
-			// off
+			// Values 0 (OFF) and 1E/1F (Attract Mode/Idle) should result in zero force
 			if (v == 0 || v == 0x1E || v == 0x1F)
 			{
 				sendConstant(constants->DIRECTION_FROM_LEFT, 0.0);
@@ -1393,22 +1393,24 @@ static void FFBGameEffects(EffectConstants* constants, Helpers* helpers, EffectT
 				return;
 			}
 
-			// direction: even=left, odd=right (keep as-is)
+			// Direction logic: Even values = Left, Odd values = Right
 			int dir = (v & 1)
 				? constants->DIRECTION_FROM_RIGHT
 				: constants->DIRECTION_FROM_LEFT;
 
-			// steps: 1..15 (and clamp for safety)
+			// Map raw values to 1..15 range
 			int steps = (v + 1) / 2;
 			if (steps > 15) steps = 15;
 
-			// invert steps: 1->15, 15->1
+			// Invert logic as per hardware behavior: 
+			// High MAME values represent low force, low MAME values represent high force
 			int stepsInv = 16 - steps;
 
+			// Calculate percentage and ensure it doesn't exceed 1.0
 			double percentForce = (double)stepsInv / 15.0;
 			if (percentForce > 1.0) percentForce = 1.0;
 
-			// prevent stale pull: clear both, then apply
+			// Prevent stale pull: clear both directions before applying new force
 			sendConstant(constants->DIRECTION_FROM_LEFT, 0.0);
 			sendConstant(constants->DIRECTION_FROM_RIGHT, 0.0);
 
