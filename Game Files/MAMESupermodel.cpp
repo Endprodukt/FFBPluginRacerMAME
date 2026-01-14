@@ -177,6 +177,8 @@ std::string racingj2j("racingj2j");
 std::string overrev("overrev");
 std::string overrevb("overrevb");
 std::string overrevba("overrevba");
+std::string sidebs("sidebs");
+std::string sidebs2("sidebs2");
 
 //Our string to load game from
 std::string VirtuaRacingActive("VirtuaRacingActive");
@@ -195,6 +197,7 @@ std::string m2new("m2new");
 std::string RaveRacerNew("RaveRacerNew");
 std::string Konami("Konami");
 std::string hng64("hng64");
+std::string SideBSActive("SideBSActive");
 
 //Names of FFB Outputs
 std::string digit0("digit0");
@@ -219,6 +222,11 @@ std::string Bank_Motor_Speed("Bank_Motor_Speed");
 std::string Bank_Motor_Direction("Bank_Motor_Direction");
 std::string bank_motor_position("bank_motor_position");
 std::string genout2("genout2");
+std::string lamp3("lamp3");
+std::string lamp4("lamp4");
+std::string lamp5("lamp5");
+std::string lamp6("lamp6");
+std::string lamp7("lamp7");
 
 HINSTANCE ProcDLL = NULL;
 extern int joystick_index1;
@@ -830,6 +838,32 @@ static int FFBDivideAceDriver = GetPrivateProfileInt(TEXT("Settings"), TEXT("FFB
 static int EnableDamperAceDriver = GetPrivateProfileInt(TEXT("Settings"), TEXT("EnableDamperAceDriver"), 0, settingsFilename);
 static int DamperStrengthAceDriver = GetPrivateProfileInt(TEXT("Settings"), TEXT("DamperStrengthAceDriver"), 100, settingsFilename);
 
+static int configMinForceSideBS = GetPrivateProfileInt(TEXT("Settings"), TEXT("MinForceSideBS"), 0, settingsFilename);
+static int configMaxForceSideBS = GetPrivateProfileInt(TEXT("Settings"), TEXT("MaxForceSideBS"), 100, settingsFilename);
+static int configAlternativeMinForceLeftSideBS = GetPrivateProfileInt(TEXT("Settings"), TEXT("AlternativeMinForceLeftSideBS"), 0, settingsFilename);
+static int configAlternativeMaxForceLeftSideBS = GetPrivateProfileInt(TEXT("Settings"), TEXT("AlternativeMaxForceLeftSideBS"), 100, settingsFilename);
+static int configAlternativeMinForceRightSideBS = GetPrivateProfileInt(TEXT("Settings"), TEXT("AlternativeMinForceRightSideBS"), 0, settingsFilename);
+static int configAlternativeMaxForceRightSideBS = GetPrivateProfileInt(TEXT("Settings"), TEXT("AlternativeMaxForceRightSideBS"), 100, settingsFilename);
+static int configFeedbackLengthSideBS = GetPrivateProfileInt(TEXT("Settings"), TEXT("FeedbackLengthSideBS"), 120, settingsFilename);
+static int PowerModeSideBS = GetPrivateProfileInt(TEXT("Settings"), TEXT("PowerModeSideBS"), 0, settingsFilename);
+static int EnableForceSpringEffectSideBS = GetPrivateProfileInt(TEXT("Settings"), TEXT("EnableForceSpringEffectSideBS"), 0, settingsFilename);
+static int ForceSpringStrengthSideBS = GetPrivateProfileInt(TEXT("Settings"), TEXT("ForceSpringStrengthSideBS"), 0, settingsFilename);
+static int EnableDamperSideBS = GetPrivateProfileInt(TEXT("Settings"), TEXT("EnableDamperSideBS"), 0, settingsFilename);
+static int DamperStrengthSideBS = GetPrivateProfileInt(TEXT("Settings"), TEXT("DamperStrengthSideBS"), 100, settingsFilename);
+
+static int configMinForceSideBS2 = GetPrivateProfileInt(TEXT("Settings"), TEXT("MinForceSideBS2"), 0, settingsFilename);
+static int configMaxForceSideBS2 = GetPrivateProfileInt(TEXT("Settings"), TEXT("MaxForceSideBS2"), 100, settingsFilename);
+static int configAlternativeMinForceLeftSideBS2 = GetPrivateProfileInt(TEXT("Settings"), TEXT("AlternativeMinForceLeftSideBS2"), 0, settingsFilename);
+static int configAlternativeMaxForceLeftSideBS2 = GetPrivateProfileInt(TEXT("Settings"), TEXT("AlternativeMaxForceLeftSideBS2"), 100, settingsFilename);
+static int configAlternativeMinForceRightSideBS2 = GetPrivateProfileInt(TEXT("Settings"), TEXT("AlternativeMinForceRightSideBS2"), 0, settingsFilename);
+static int configAlternativeMaxForceRightSideBS2 = GetPrivateProfileInt(TEXT("Settings"), TEXT("AlternativeMaxForceRightSideBS2"), 100, settingsFilename);
+static int configFeedbackLengthSideBS2 = GetPrivateProfileInt(TEXT("Settings"), TEXT("FeedbackLengthSideBS2"), 120, settingsFilename);
+static int PowerModeSideBS2 = GetPrivateProfileInt(TEXT("Settings"), TEXT("PowerModeSideBS2"), 0, settingsFilename);
+static int EnableForceSpringEffectSideBS2 = GetPrivateProfileInt(TEXT("Settings"), TEXT("EnableForceSpringEffectSideBS2"), 0, settingsFilename);
+static int ForceSpringStrengthSideBS2 = GetPrivateProfileInt(TEXT("Settings"), TEXT("ForceSpringStrengthSideBS2"), 0, settingsFilename);
+static int EnableDamperSideBS2 = GetPrivateProfileInt(TEXT("Settings"), TEXT("EnableDamperSideBS2"), 0, settingsFilename);
+static int DamperStrengthSideBS2 = GetPrivateProfileInt(TEXT("Settings"), TEXT("DamperStrengthSideBS2"), 100, settingsFilename);
+
 static bool init = false;
 static bool initSpring = false;
 static bool EmuName = false;
@@ -1330,6 +1364,55 @@ static void FFBGameEffects(EffectConstants* constants, Helpers* helpers, EffectT
 				sendConstant(constants->DIRECTION_FROM_LEFT, 0.0);
 				sendConstant(constants->DIRECTION_FROM_RIGHT, 0.0);
 			}
+		}
+	}
+
+	if (RunningFFB == SideBSActive)
+	{
+		if (name == wheel_motor)
+		{
+			auto sendConstant = [&](int direction, double strength)
+				{
+					if (UseConstantInf)
+						triggers->ConstantInf(direction, strength);
+					else
+						triggers->Constant(direction, strength);
+				};
+
+			helpers->log("got wheel_motor: ");
+			std::string ffs = std::to_string(stateFFB);
+			helpers->log((char*)ffs.c_str());
+
+			int v = (int)stateFFB & 0x1F;  // we only use the last 5 bits (0..31)
+
+			// off
+			if (v == 0 || v == 0x1E || v == 0x1F)
+			{
+				sendConstant(constants->DIRECTION_FROM_LEFT, 0.0);
+				sendConstant(constants->DIRECTION_FROM_RIGHT, 0.0);
+				return;
+			}
+
+			// direction: even=left, odd=right (keep as-is)
+			int dir = (v & 1)
+				? constants->DIRECTION_FROM_RIGHT
+				: constants->DIRECTION_FROM_LEFT;
+
+			// steps: 1..15 (and clamp for safety)
+			int steps = (v + 1) / 2;
+			if (steps > 15) steps = 15;
+
+			// invert steps: 1->15, 15->1
+			int stepsInv = 16 - steps;
+
+			double percentForce = (double)stepsInv / 15.0;
+			if (percentForce > 1.0) percentForce = 1.0;
+
+			// prevent stale pull: clear both, then apply
+			sendConstant(constants->DIRECTION_FROM_LEFT, 0.0);
+			sendConstant(constants->DIRECTION_FROM_RIGHT, 0.0);
+
+			sendConstant(dir, percentForce);
 		}
 	}
 
@@ -2797,6 +2880,42 @@ void MAMESupermodel::FFBLoop(EffectConstants* constants, Helpers* helpers, Effec
 				DamperStrength = DamperStrengthAceDriver;
 
 				RunningFFB = "NamcoFFBNew";
+			}
+
+			if (romname == sidebs)
+			{
+				configMinForce = configMinForceSideBS;
+				configMaxForce = configMaxForceSideBS;
+				configAlternativeMinForceLeft = configAlternativeMinForceLeftSideBS;
+				configAlternativeMaxForceLeft = configAlternativeMaxForceLeftSideBS;
+				configAlternativeMinForceRight = configAlternativeMinForceRightSideBS;
+				configAlternativeMaxForceRight = configAlternativeMaxForceRightSideBS;
+				configFeedbackLength = configFeedbackLengthSideBS;
+				PowerMode = PowerModeSideBS;
+				EnableForceSpringEffect = EnableForceSpringEffectSideBS;
+				ForceSpringStrength = ForceSpringStrengthSideBS;
+				EnableDamper = EnableDamperSideBS;
+				DamperStrength = DamperStrengthSideBS;
+
+				RunningFFB = "SideBSActive";
+			}
+
+			if (romname == sidebs2)
+			{
+				configMinForce = configMinForceSideBS2;
+				configMaxForce = configMaxForceSideBS2;
+				configAlternativeMinForceLeft = configAlternativeMinForceLeftSideBS2;
+				configAlternativeMaxForceLeft = configAlternativeMaxForceLeftSideBS2;
+				configAlternativeMinForceRight = configAlternativeMinForceRightSideBS2;
+				configAlternativeMaxForceRight = configAlternativeMaxForceRightSideBS2;
+				configFeedbackLength = configFeedbackLengthSideBS2;
+				PowerMode = PowerModeSideBS2;
+				EnableForceSpringEffect = EnableForceSpringEffectSideBS2;
+				ForceSpringStrength = ForceSpringStrengthSideBS2;
+				EnableDamper = EnableDamperSideBS2;
+				DamperStrength = DamperStrengthSideBS2;
+
+				RunningFFB = "SideBSActive";
 			}
 
 			if (enableLogging)
