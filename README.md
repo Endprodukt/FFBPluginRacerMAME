@@ -67,6 +67,7 @@ Ensure either MAME32.dll or MAME64.dll is with FFB Plugin files in MAME folder d
 - Crusn'USA
 - Crusn' World
 - Daytona USA
+- Dirt Dash (use dirtdasha rom)
 - F-1 Grand Prix Star
 - F-1 Grand Prix Star II
 - GTI Club
