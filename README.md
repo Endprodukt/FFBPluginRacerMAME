@@ -67,7 +67,7 @@ Ensure either MAME32.dll or MAME64.dll is with FFB Plugin files in MAME folder d
 - Crusn'USA
 - Crusn' World
 - Daytona USA
-- Dirt Dash (use dirtdasha rom)
+- Dirt Dash
 - F-1 Grand Prix Star
 - F-1 Grand Prix Star II
 - GTI Club
@@ -84,6 +84,7 @@ Ensure either MAME32.dll or MAME64.dll is with FFB Plugin files in MAME folder d
 - Racing Jam 2
 - Rave Racer (Feedback needs to be activated in the service menu)(you can invert the ffb effect in the gui for standard/deluxe mode)
 - Roads Edge
+  
 - San Francisco Rush
 - San Francisco Rush The Rock
 - San Francisco Rush 2049
