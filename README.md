@@ -84,12 +84,13 @@ Ensure either MAME32.dll or MAME64.dll is with FFB Plugin files in MAME folder d
 - Racing Jam 2
 - Rave Racer (Feedback needs to be activated in the service menu)(you can invert the ffb effect in the gui for standard/deluxe mode)
 - Roads Edge
-  
 - San Francisco Rush
 - San Francisco Rush The Rock
 - San Francisco Rush 2049
 - Sega Rally Championship
 - Sega Touring Car Championship
+- Side By Side* (READ INFO!)
+- Side By Side 2* (READ INFO!)
 - Super GT 24h (output works but analog input is broken)
 - Thrill Drive
 - Turbo Outrun
@@ -98,3 +99,12 @@ Ensure either MAME32.dll or MAME64.dll is with FFB Plugin files in MAME folder d
 - Winding Heat
 - Xtreme Rally
 
+
+* Side By Side and Side By Side 2 information: 
+Activate Cheats in Mame and press ^ in game to show sliders. Go to CPU Overclock. Mine is set at 240% for now as everything above that can't be handled by my CPU (13600k at 5.4ghz). It makes it very playable here but your outcome might vary.
+
+Find the highest number you can set for your computer and restart the game. Immediately pause, set the CPU Overclock, close the slider and press shift+f6 for a quicksave. This will automaticaly set the overclock settings as they won't be saved by mame.
+
+Make sure the sidebs.ini and sidebs2.ini are in the same location as the mame exe - this will automatically load the savestate.
+
+We can only hope the driver will be improved in the future.
