@@ -1100,6 +1100,10 @@ void Initialize(int device_index)
 	hlp.log("in initialize");
 	SDL_SetHint(SDL_HINT_JOYSTICK_RAWINPUT, "0");
 	if (SDL_Init(SDL_INIT_JOYSTICK | SDL_INIT_HAPTIC | SDL_INIT_GAMECONTROLLER) < 0)
+	{
+		hlp.log("SDL_Init failed");
+		return;
+	}
 	SDL_JoystickEventState(SDL_ENABLE);
 	SDL_JoystickUpdate();
 	char joystick_guid[256];
@@ -1163,6 +1167,13 @@ void Initialize(int device_index)
 		hlp.log(firstJoystickSelectedText);
 	}
 	haptic = ControllerHaptic;
+
+	if (haptic == NULL)
+	{
+		hlp.log("No haptic device available, FFB effects will be disabled");
+		return;
+	}
+
 	if ((SDL_HapticRumbleSupported(haptic) == SDL_TRUE && EnableRumble))
 	{
 		SDL_HapticRumbleInit(ControllerHaptic);
@@ -1175,78 +1186,111 @@ void Initialize(int device_index)
 	hlp.log("setting haptic auto center to 0");
 	SDL_HapticSetAutocenter(haptic, 0); // 0 disables autocenter https://wiki.libsdl.org/SDL_HapticSetAutocenter
 
+	unsigned int supported = SDL_HapticQuery(haptic);
+	hlp.log("querying supported haptic effects...");
+
 	SDL_HapticEffect tempEffect;
 	hlp.log("creating base effects...");
 
-	SDL_memset(&tempEffect, 0, sizeof(SDL_HapticEffect));
-	tempEffect.type = SDL_HAPTIC_CONSTANT;
-	tempEffect.constant.direction.type = SDL_HAPTIC_CARTESIAN;
-	tempEffect.constant.direction.dir[0] = -1; //left => right is +1 as per this 2d array explanation: https://wiki.libsdl.org/SDL_HapticDirection
-	tempEffect.constant.length = configFeedbackLength; // presumably is ms, but is not documented
-	tempEffect.constant.delay = 0;
-	tempEffect.constant.level = 9999; // this is an sint16 => -32768 to 32767
-	effects.effect_constant_id = SDL_HapticNewEffect(haptic, &tempEffect); // Upload the effect
+	if (supported & SDL_HAPTIC_CONSTANT)
+	{
+		SDL_memset(&tempEffect, 0, sizeof(SDL_HapticEffect));
+		tempEffect.type = SDL_HAPTIC_CONSTANT;
+		tempEffect.constant.direction.type = SDL_HAPTIC_CARTESIAN;
+		tempEffect.constant.direction.dir[0] = -1; //left => right is +1 as per this 2d array explanation: https://wiki.libsdl.org/SDL_HapticDirection
+		tempEffect.constant.length = configFeedbackLength; // presumably is ms, but is not documented
+		tempEffect.constant.delay = 0;
+		tempEffect.constant.level = 9999; // this is an sint16 => -32768 to 32767
+		effects.effect_constant_id = SDL_HapticNewEffect(haptic, &tempEffect); // Upload the effect
+	}
 
-	tempEffect = SDL_HapticEffect();
-	tempEffect.type = SDL_HAPTIC_FRICTION;
-	tempEffect.constant.direction.type = SDL_HAPTIC_CARTESIAN;
-	tempEffect.condition.delay = 0;
-	tempEffect.condition.length = 5000;
-	effects.effect_friction_id = SDL_HapticNewEffect(haptic, &tempEffect);
+	if (supported & SDL_HAPTIC_FRICTION)
+	{
+		tempEffect = SDL_HapticEffect();
+		tempEffect.type = SDL_HAPTIC_FRICTION;
+		tempEffect.constant.direction.type = SDL_HAPTIC_CARTESIAN;
+		tempEffect.condition.delay = 0;
+		tempEffect.condition.length = 5000;
+		effects.effect_friction_id = SDL_HapticNewEffect(haptic, &tempEffect);
+	}
 
-	tempEffect = SDL_HapticEffect();
-	tempEffect.type = SDL_HAPTIC_SINE;
-	tempEffect.constant.direction.type = SDL_HAPTIC_CARTESIAN;
-	effects.effect_sine_id = SDL_HapticNewEffect(haptic, &tempEffect);
+	if (supported & SDL_HAPTIC_SINE)
+	{
+		tempEffect = SDL_HapticEffect();
+		tempEffect.type = SDL_HAPTIC_SINE;
+		tempEffect.constant.direction.type = SDL_HAPTIC_CARTESIAN;
+		effects.effect_sine_id = SDL_HapticNewEffect(haptic, &tempEffect);
+	}
 
-	tempEffect = SDL_HapticEffect();
-	tempEffect.type = SDL_HAPTIC_SPRING;
-	tempEffect.condition.direction.type = SDL_HAPTIC_CARTESIAN;
-	tempEffect.condition.delay = 0;
-	tempEffect.condition.length = 5000;
-	effects.effect_spring_id = SDL_HapticNewEffect(haptic, &tempEffect);
+	if (supported & SDL_HAPTIC_SPRING)
+	{
+		tempEffect = SDL_HapticEffect();
+		tempEffect.type = SDL_HAPTIC_SPRING;
+		tempEffect.condition.direction.type = SDL_HAPTIC_CARTESIAN;
+		tempEffect.condition.delay = 0;
+		tempEffect.condition.length = 5000;
+		effects.effect_spring_id = SDL_HapticNewEffect(haptic, &tempEffect);
+	}
 
-	tempEffect = SDL_HapticEffect();
-	tempEffect.type = SDL_HAPTIC_INERTIA;
-	tempEffect.condition.direction.type = SDL_HAPTIC_CARTESIAN;
-	tempEffect.condition.delay = 0;
-	tempEffect.condition.length = 5000;
-	effects.effect_inertia_id = SDL_HapticNewEffect(haptic, &tempEffect);
+	if (supported & SDL_HAPTIC_INERTIA)
+	{
+		tempEffect = SDL_HapticEffect();
+		tempEffect.type = SDL_HAPTIC_INERTIA;
+		tempEffect.condition.direction.type = SDL_HAPTIC_CARTESIAN;
+		tempEffect.condition.delay = 0;
+		tempEffect.condition.length = 5000;
+		effects.effect_inertia_id = SDL_HapticNewEffect(haptic, &tempEffect);
+	}
 
-	tempEffect = SDL_HapticEffect();
-	tempEffect.type = SDL_HAPTIC_DAMPER;
-	tempEffect.condition.direction.type = SDL_HAPTIC_CARTESIAN;
-	tempEffect.condition.delay = 0;
-	tempEffect.condition.length = 5000;
-	effects.effect_damper_id = SDL_HapticNewEffect(haptic, &tempEffect);
+	if (supported & SDL_HAPTIC_DAMPER)
+	{
+		tempEffect = SDL_HapticEffect();
+		tempEffect.type = SDL_HAPTIC_DAMPER;
+		tempEffect.condition.direction.type = SDL_HAPTIC_CARTESIAN;
+		tempEffect.condition.delay = 0;
+		tempEffect.condition.length = 5000;
+		effects.effect_damper_id = SDL_HapticNewEffect(haptic, &tempEffect);
+	}
 
-	tempEffect = SDL_HapticEffect();
-	tempEffect.type = SDL_HAPTIC_TRIANGLE;
-	tempEffect.condition.direction.type = SDL_HAPTIC_CARTESIAN;
-	tempEffect.condition.delay = 0;
-	tempEffect.condition.length = 5000;
-	effects.effect_triangle_id = SDL_HapticNewEffect(haptic, &tempEffect);
+	if (supported & SDL_HAPTIC_TRIANGLE)
+	{
+		tempEffect = SDL_HapticEffect();
+		tempEffect.type = SDL_HAPTIC_TRIANGLE;
+		tempEffect.condition.direction.type = SDL_HAPTIC_CARTESIAN;
+		tempEffect.condition.delay = 0;
+		tempEffect.condition.length = 5000;
+		effects.effect_triangle_id = SDL_HapticNewEffect(haptic, &tempEffect);
+	}
 
-	tempEffect = SDL_HapticEffect();
-	tempEffect.type = SDL_HAPTIC_RAMP;
-	tempEffect.ramp.direction.type = SDL_HAPTIC_CARTESIAN;
-	tempEffect.ramp.delay = 0;
-	tempEffect.ramp.length = 5000;
-	effects.effect_ramp_id = SDL_HapticNewEffect(haptic, &tempEffect);
+	if (supported & SDL_HAPTIC_RAMP)
+	{
+		tempEffect = SDL_HapticEffect();
+		tempEffect.type = SDL_HAPTIC_RAMP;
+		tempEffect.ramp.direction.type = SDL_HAPTIC_CARTESIAN;
+		tempEffect.ramp.delay = 0;
+		tempEffect.ramp.length = 5000;
+		effects.effect_ramp_id = SDL_HapticNewEffect(haptic, &tempEffect);
+	}
 
-	tempEffect = SDL_HapticEffect();
-	tempEffect.type = SDL_HAPTIC_SAWTOOTHUP;
-	tempEffect.condition.direction.type = SDL_HAPTIC_CARTESIAN;
-	tempEffect.condition.delay = 0;
-	tempEffect.condition.length = 5000;
-	effects.effect_sawtoothup_id = SDL_HapticNewEffect(haptic, &tempEffect);
+	if (supported & SDL_HAPTIC_SAWTOOTHUP)
+	{
+		tempEffect = SDL_HapticEffect();
+		tempEffect.type = SDL_HAPTIC_SAWTOOTHUP;
+		tempEffect.condition.direction.type = SDL_HAPTIC_CARTESIAN;
+		tempEffect.condition.delay = 0;
+		tempEffect.condition.length = 5000;
+		effects.effect_sawtoothup_id = SDL_HapticNewEffect(haptic, &tempEffect);
+	}
 
-	tempEffect = SDL_HapticEffect();
-	tempEffect.type = SDL_HAPTIC_SAWTOOTHDOWN;
-	tempEffect.condition.direction.type = SDL_HAPTIC_CARTESIAN;
-	tempEffect.condition.delay = 0;
-	tempEffect.condition.length = 5000;
-	effects.effect_sawtoothdown_id = SDL_HapticNewEffect(haptic, &tempEffect);
+	if (supported & SDL_HAPTIC_SAWTOOTHDOWN)
+	{
+		tempEffect = SDL_HapticEffect();
+		tempEffect.type = SDL_HAPTIC_SAWTOOTHDOWN;
+		tempEffect.condition.direction.type = SDL_HAPTIC_CARTESIAN;
+		tempEffect.condition.delay = 0;
+		tempEffect.condition.length = 5000;
+		effects.effect_sawtoothdown_id = SDL_HapticNewEffect(haptic, &tempEffect);
+	}
 
 	if (haptic2 != NULL)
 	{
@@ -1288,6 +1332,8 @@ double lastSineEffectPeriodDevice3 = 0;
 
 void TriggerConstantEffect(int direction, double strength)
 {
+	if (haptic == NULL || effects.effect_constant_id < 0) return;
+
 	SDL_HapticEffect tempEffect;
 	SDL_memset(&tempEffect, 0, sizeof(SDL_HapticEffect));
 	tempEffect.type = SDL_HAPTIC_CONSTANT;
@@ -1411,6 +1457,8 @@ void TriggerConstantInfEffect(int direction, double strength)
 
 void TriggerFrictionEffectWithDefaultOption(double strength, bool isDefault)
 {
+	if (haptic == NULL || effects.effect_friction_id < 0) return;
+
 	SDL_HapticEffect tempEffect;
 	SDL_memset(&tempEffect, 0, sizeof(SDL_HapticEffect));
 	tempEffect.type = SDL_HAPTIC_FRICTION;
@@ -1445,6 +1493,8 @@ void TriggerFrictionEffectWithDefaultOption(double strength, bool isDefault)
 
 void TriggerInertiaEffect(double strength)
 {
+	if (haptic == NULL || effects.effect_inertia_id < 0) return;
+
 	SDL_HapticEffect tempEffect;
 	SDL_memset(&tempEffect, 0, sizeof(SDL_HapticEffect));
 	tempEffect.type = SDL_HAPTIC_INERTIA;
@@ -1474,6 +1524,8 @@ void TriggerInertiaEffect(double strength)
 
 void TriggerTriangleEffect(double strength, double length)
 {
+	if (haptic == NULL || effects.effect_triangle_id < 0) return;
+
 	int direction = 1;
 	if (strength < -0.001) {
 		strength *= -1;
@@ -1526,6 +1578,8 @@ void TriggerTriangleEffect(double strength, double length)
 
 void TriggerDamperEffect(double strength)
 {
+	if (haptic == NULL || effects.effect_damper_id < 0) return;
+
 	SDL_HapticEffect tempEffect;
 	SDL_memset(&tempEffect, 0, sizeof(SDL_HapticEffect));
 	tempEffect.type = SDL_HAPTIC_DAMPER;
@@ -1554,6 +1608,8 @@ void TriggerDamperEffect(double strength)
 
 void TriggerRampEffect(double start, double end, double length)
 {
+	if (haptic == NULL || effects.effect_ramp_id < 0) return;
+
 	SDL_HapticEffect tempEffect;
 	SDL_memset(&tempEffect, 0, sizeof(SDL_HapticEffect));
 	tempEffect.type = SDL_HAPTIC_RAMP;
@@ -1586,6 +1642,8 @@ void TriggerRampEffect(double start, double end, double length)
 
 void TriggerSawtoothUpEffect(double strength, double length)
 {
+	if (haptic == NULL || effects.effect_sawtoothup_id < 0) return;
+
 	SDL_HapticEffect tempEffect;
 	SDL_memset(&tempEffect, 0, sizeof(SDL_HapticEffect));
 	tempEffect.type = SDL_HAPTIC_SAWTOOTHUP;
@@ -1610,6 +1668,8 @@ void TriggerSawtoothUpEffect(double strength, double length)
 }
 
 void TriggerSawtoothDownEffect(double strength, double length) {
+	if (haptic == NULL || effects.effect_sawtoothdown_id < 0) return;
+
 	SDL_HapticEffect tempEffect;
 	SDL_memset(&tempEffect, 0, sizeof(SDL_HapticEffect));
 	tempEffect.type = SDL_HAPTIC_SAWTOOTHDOWN;
@@ -1640,6 +1700,8 @@ void TriggerFrictionEffect(double strength)
 
 void TriggerSineEffect(UINT16 period, UINT16 fadePeriod, double strength)
 {
+	if (haptic == NULL || effects.effect_sine_id < 0) return;
+
 	std::chrono::milliseconds now = duration_cast<milliseconds>(system_clock::now().time_since_epoch());
 	long long elapsedTime = (std::chrono::duration_cast<std::chrono::milliseconds>(now - timeOfLastSineEffect)).count();
 
@@ -1857,6 +1919,8 @@ void TriggerSineEffectDevice3(UINT16 period, UINT16 fadePeriod, double strength)
 
 void TriggerSpringEffectWithDefaultOption(double strength, bool isDefault)
 {
+	if (haptic == NULL || effects.effect_spring_id < 0) return;
+
 	SDL_HapticEffect tempEffect;
 	SDL_memset(&tempEffect, 0, sizeof(SDL_HapticEffect));
 	tempEffect.type = SDL_HAPTIC_SPRING;
@@ -1895,6 +1959,8 @@ void TriggerSpringEffectWithDefaultOption(double strength, bool isDefault)
 
 void TriggerSpringEffectInfinite(double strength)
 {
+	if (haptic == NULL || effects.effect_spring_id < 0) return;
+
 	SDL_HapticEffect tempEffect;
 	SDL_memset(&tempEffect, 0, sizeof(SDL_HapticEffect));
 
