@@ -89,8 +89,8 @@ Ensure either MAME32.dll or MAME64.dll is with FFB Plugin files in MAME folder d
 - San Francisco Rush 2049
 - Sega Rally Championship
 - Sega Touring Car Championship
-- Side By Side* (READ INFO!)
-- Side By Side 2* (READ INFO!)
+(- Side By Side* (READ INFO!))
+(- Side By Side 2* (READ INFO!))
 - Super GT 24h (output works but analog input is broken)
 - Thrill Drive
 - Turbo Outrun
@@ -99,7 +99,7 @@ Ensure either MAME32.dll or MAME64.dll is with FFB Plugin files in MAME folder d
 - Winding Heat
 - Xtreme Rally
 
-SIDE BY SIDE INFO: OVERCLOCK DOESN'T SEEM TO WORK AFTER .288 ANYMORE!
+SIDE BY SIDE INFO: OVERCLOCK DOESN'T SEEM TO WORK ANYMORE. I DON'T CONSIDER THESE GAMES WORKING.
 
 * Side By Side and Side By Side 2 information: 
 Activate Cheats in Mame and press ^ in game to show sliders. Go to CPU Overclock. Mine is set at 240% for now as everything above that can't be handled by my CPU (13600k at 5.4ghz). It makes it very playable here but your outcome might vary.
