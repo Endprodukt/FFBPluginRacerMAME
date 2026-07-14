@@ -1788,6 +1788,9 @@ void TriggerSineEffect(UINT16 period, UINT16 fadePeriod, double strength)
 
 void TriggerSineEffectDevice2(UINT16 period, UINT16 fadePeriod, double strength)
 {
+	if (haptic2 == NULL || effects.effect_sine_id_device2 < 0)
+		return;
+
 	std::chrono::milliseconds now = duration_cast<milliseconds>(system_clock::now().time_since_epoch());
 	long long elapsedTime = (std::chrono::duration_cast<std::chrono::milliseconds>(now - timeOfLastSineEffectDevice2)).count();
 
@@ -1856,6 +1859,9 @@ void TriggerSineEffectDevice2(UINT16 period, UINT16 fadePeriod, double strength)
 
 void TriggerSineEffectDevice3(UINT16 period, UINT16 fadePeriod, double strength)
 {
+	if (haptic3 == NULL || effects.effect_sine_id_device3 < 0)
+		return;
+
 	std::chrono::milliseconds now = duration_cast<milliseconds>(system_clock::now().time_since_epoch());
 	long long elapsedTime = (std::chrono::duration_cast<std::chrono::milliseconds>(now - timeOfLastSineEffectDevice3)).count();
 
@@ -2010,6 +2016,9 @@ void TriggerSpringEffectInfinite(double strength)
 
 void TriggerLeftRightEffect(double smallstrength, double largestrength, double length)
 {
+	if (!EnableRumble || haptic == NULL || effects.effect_leftright_id < 0)
+		return;
+
 	if (EnableRumble)
 	{
 		if (!ReverseRumble)
@@ -2049,6 +2058,9 @@ void TriggerLeftRightEffect(double smallstrength, double largestrength, double l
 
 void TriggerLeftRightDevice2Effect(double smallstrength, double largestrength, double length)
 {
+	if (!EnableRumble || haptic2 == NULL)
+		return;
+
 	if (EnableRumble)
 	{
 		if (!ReverseRumble)
