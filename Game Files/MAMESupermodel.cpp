@@ -1283,7 +1283,11 @@ static void FFBGameEffects(EffectConstants* constants, Helpers* helpers, EffectT
 
 	if (RunningFFB == Konami)
 	{
-		if (name == wheel || name == wheel_motor || name == pcboutput0 || name == output0 || name == wheel0)
+		if (name == wheel ||
+			name == wheel_motor ||
+			name == pcboutput0 ||
+			name == output0 ||
+			name == wheel0)
 		{
 			auto sendConstant = [&](int direction, double strength)
 				{
@@ -1293,39 +1297,40 @@ static void FFBGameEffects(EffectConstants* constants, Helpers* helpers, EffectT
 						triggers->Constant(direction, strength);
 				};
 
+			const uint8_t value = static_cast<uint8_t>(stateFFB);
+
 			helpers->log("got value: ");
-			std::string ffs = std::to_string(stateFFB);
+			std::string ffs = std::to_string(value);
 			helpers->log((char*)ffs.c_str());
 
-			if (stateFFB == 0)
+			// Bits 0–3 enthalten die Kraftstufe 0–15.
+			const int forceLevel = value & 0x0F;
+
+			// Bit 4 enthält die Richtung.
+			const bool directionBit = (value & 0x10) != 0;
+
+			// Nicht nur der Gesamtwert 0 bedeutet keine Kraft.
+			// Auch 0x80 und 0x90 haben Kraftstufe 0.
+			if (forceLevel == 0)
 			{
 				sendConstant(constants->DIRECTION_FROM_LEFT, 0.0);
 				sendConstant(constants->DIRECTION_FROM_RIGHT, 0.0);
 				return;
 			}
 
-			if (stateFFB > 0x7F && stateFFB < 0x90)
-			{
-				double percentForce = (stateFFB - 127) / 16.0;
-				if (percentForce > 1.0) percentForce = 1.0;
+			const double percentForce = forceLevel / 15.0;
 
+			if (!directionBit)
+			{
+				// Konami-Bit 4 = 0
 				triggers->Rumble(0, percentForce, 100);
 				sendConstant(constants->DIRECTION_FROM_RIGHT, percentForce);
 			}
-
-			else if (stateFFB > 0x8F && stateFFB < 0xA0)
-			{
-				double percentForce = (stateFFB - 143) / 16.0;
-				if (percentForce > 1.0) percentForce = 1.0;
-
-				triggers->Rumble(percentForce, 0, 100);
-				sendConstant(constants->DIRECTION_FROM_LEFT, percentForce);
-			}
-	
 			else
 			{
-				sendConstant(constants->DIRECTION_FROM_LEFT, 0.0);
-				sendConstant(constants->DIRECTION_FROM_RIGHT, 0.0);
+				// Konami-Bit 4 = 1
+				triggers->Rumble(percentForce, 0, 100);
+				sendConstant(constants->DIRECTION_FROM_LEFT, percentForce);
 			}
 		}
 	}

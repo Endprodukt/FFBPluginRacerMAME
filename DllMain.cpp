@@ -1388,6 +1388,11 @@ void TriggerConstantEffect(int direction, double strength)
 
 void TriggerConstantInfEffect(int direction, double strength)
 {
+	if (haptic == NULL || effects.effect_constant_id < 0)
+	{
+		isConstantEffectRunning = false;
+		return;
+	}
 	// Wenn die Kraft zu klein ist, stoppe den Effekt
 	if (strength < 0.001)
 	{
