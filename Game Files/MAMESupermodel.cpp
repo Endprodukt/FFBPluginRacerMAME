@@ -114,8 +114,8 @@ std::string racedrivc("racedrivc");
 std::string racedrivpan("racedrivpan");
 std::string raverace("raverace");
 std::string raveracw("raveracw");
-std::string raveracj("raveracj");
-std::string raveracja("raveracja");
+std::string raveracej("raveracej");
+std::string raveraceja("raveraceja");
 std::string sgt24h("sgt24h");
 std::string srallyc("srallyc");
 std::string srallycb("srallycb");
@@ -164,6 +164,14 @@ std::string thrilld("thrilld");
 std::string thrillda("thrillda");
 std::string thrillde("thrillde");
 std::string thrilldj("thrilldj");
+std::string thrilldgej("thrilldgej");
+std::string thrilldgeu("thrilldgeu");
+std::string thrilldgke("thrilldgke");
+std::string thrilldgkk("thrilldgkk");
+std::string thrilldgmj("thrilldgmj");
+std::string thrilldgnj("thrilldgnj");
+std::string thrilldgpj("thrilldgpj");
+std::string thrilldgkee("thrilldgkee");
 std::string racingj("racingj");
 std::string racingja("racingja");
 std::string racingje("racingje");
@@ -179,6 +187,8 @@ std::string overrevb("overrevb");
 std::string overrevba("overrevba");
 std::string sidebs("sidebs");
 std::string sidebs2("sidebs2");
+std::string sidebs2j("sidebs2j");
+std::string sidebs2ja("sidebs2ja");
 
 //Our string to load game from
 std::string VirtuaRacingActive("VirtuaRacingActive");
@@ -2226,7 +2236,7 @@ void MAMESupermodel::FFBLoop(EffectConstants* constants, Helpers* helpers, Effec
 				RunningFFB = "hng64";
 			}
 
-			if (romname == thrilld || romname == thrillda || romname == thrilldj || romname == thrillde)
+			if (romname == thrilld || romname == thrillda || romname == thrilldj || romname == thrillde || romname == thrilldgej || romname == thrilldgeu || romname == thrilldgke || romname == thrilldgkk || romname == thrilldgmj || romname == thrilldgnj || romname == thrilldgpj || romname == thrilldgkee)
 			{
 				configMinForce = configMinForceThrillD;
 				configMaxForce = configMaxForceThrillD;
@@ -2719,7 +2729,7 @@ void MAMESupermodel::FFBLoop(EffectConstants* constants, Helpers* helpers, Effec
 				RunningFFB = "RacingFullValueActive1";
 			}
 
-			if (romname == raveracw || romname == raveracj || romname == raveracja || romname == raverace)
+			if (romname == raveracw || romname == raveracej || romname == raveraceja || romname == raverace)
 			{
 				configMinForce = configMinForceRaveRacer;
 				configMaxForce = configMaxForceRaveRacer;
@@ -2902,7 +2912,7 @@ void MAMESupermodel::FFBLoop(EffectConstants* constants, Helpers* helpers, Effec
 				RunningFFB = "SideBSActive";
 			}
 
-			if (romname == sidebs2)
+			if (romname == sidebs2 || romname == sidebs2j || romname == sidebs2ja)
 			{
 				configMinForce = configMinForceSideBS2;
 				configMaxForce = configMaxForceSideBS2;
