@@ -224,8 +224,8 @@ std::string vibration_motor("vibration_motor");
 std::string Wheel_vibration("Wheel_vibration");
 std::string Wheel_Vibration("Wheel_Vibration");
 std::string upright_wheel_motor("upright_wheel_motor");
-std::string MA_Steering_Wheel_motor("MA_Steering_Wheel_motor");
-std::string MB_Steering_Wheel_motor("MB_Steering_Wheel_motor");
+std::string MA_Steering_Wheel_motor("mainpcb:MA_Steering_Wheel_motor");
+std::string MB_Steering_Wheel_motor("mainpcb:MB_Steering_Wheel_motor");
 std::string mcuout1("mcuout1");
 std::string mcuout3("mcuout3");
 std::string Bank_Motor_Speed("Bank_Motor_Speed");
@@ -3075,11 +3075,8 @@ void MAMESupermodel::FFBLoop(EffectConstants* constants, Helpers* helpers, Effec
 				std::string ffs = std::to_string(newstateFFB);
 				helpers->log((char*)ffs.c_str());
 
-				if (newstateFFB != 0)
-				{
-					stateFFB = newstateFFB;
+				stateFFB = newstateFFB;
 				}
-			}
 
 			if (name == Vibration_motor)
 			{
