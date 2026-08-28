@@ -124,6 +124,12 @@ std::string srallycdx("srallycdx");
 std::string spacegun("spacegun");
 std::string spacegunu("spacegunu");
 std::string spacegunj("spacegunj");
+std::string speedup("speedup");
+std::string speedup21("speedup21");
+std::string speedup20a("speedup20a");
+std::string speedup20("speedup20");
+std::string speedup12("speedup12");
+std::string speedup10("speedup10");
 std::string superchs("superchs");
 std::string superchsp("superchsp");
 std::string superchsj("superchsj");
@@ -873,6 +879,19 @@ static int EnableForceSpringEffectSideBS2 = GetPrivateProfileInt(TEXT("Settings"
 static int ForceSpringStrengthSideBS2 = GetPrivateProfileInt(TEXT("Settings"), TEXT("ForceSpringStrengthSideBS2"), 0, settingsFilename);
 static int EnableDamperSideBS2 = GetPrivateProfileInt(TEXT("Settings"), TEXT("EnableDamperSideBS2"), 0, settingsFilename);
 static int DamperStrengthSideBS2 = GetPrivateProfileInt(TEXT("Settings"), TEXT("DamperStrengthSideBS2"), 100, settingsFilename);
+
+static int configMinForceSpeedUp = GetPrivateProfileInt(TEXT("Settings"), TEXT("MinForceSpeedUp"), 0, settingsFilename);
+static int configMaxForceSpeedUp = GetPrivateProfileInt(TEXT("Settings"), TEXT("MaxForceSpeedUp"), 100, settingsFilename);
+static int configAlternativeMinForceLeftSpeedUp = GetPrivateProfileInt(TEXT("Settings"), TEXT("AlternativeMinForceLeftSpeedUp"), 0, settingsFilename);
+static int configAlternativeMaxForceLeftSpeedUp = GetPrivateProfileInt(TEXT("Settings"), TEXT("AlternativeMaxForceLeftSpeedUp"), 100, settingsFilename);
+static int configAlternativeMinForceRightSpeedUp = GetPrivateProfileInt(TEXT("Settings"), TEXT("AlternativeMinForceRightSpeedUp"), 0, settingsFilename);
+static int configAlternativeMaxForceRightSpeedUp = GetPrivateProfileInt(TEXT("Settings"), TEXT("AlternativeMaxForceRightSpeedUp"), 100, settingsFilename);
+static int configFeedbackLengthSpeedUp = GetPrivateProfileInt(TEXT("Settings"), TEXT("FeedbackLengthSpeedUp"), 120, settingsFilename);
+static int PowerModeSpeedUp = GetPrivateProfileInt(TEXT("Settings"), TEXT("PowerModeSpeedUp"), 0, settingsFilename);
+static int EnableForceSpringEffectSpeedUp = GetPrivateProfileInt(TEXT("Settings"), TEXT("EnableForceSpringEffectSpeedUp"), 0, settingsFilename);
+static int ForceSpringStrengthSpeedUp = GetPrivateProfileInt(TEXT("Settings"), TEXT("ForceSpringStrengthSpeedUp"), 0, settingsFilename);
+static int EnableDamperSpeedUp = GetPrivateProfileInt(TEXT("Settings"), TEXT("EnableDamperSpeedUp"), 0, settingsFilename);
+static int DamperStrengthSpeedUp = GetPrivateProfileInt(TEXT("Settings"), TEXT("DamperStrengthSpeedUp"), 100, settingsFilename);
 
 static bool init = false;
 static bool initSpring = false;
@@ -2933,6 +2952,24 @@ void MAMESupermodel::FFBLoop(EffectConstants* constants, Helpers* helpers, Effec
 				DamperStrength = DamperStrengthSideBS2;
 
 				RunningFFB = "SideBSActive";
+			}
+
+			if (romname == speedup || romname == speedup10 || romname == speedup12 || romname == speedup20 || romname == speedup20a || romname == speedup21)
+			{
+				configMinForce = configMinForceSpeedUp;
+				configMaxForce = configMaxForceSpeedUp;
+				configAlternativeMinForceLeft = configAlternativeMinForceLeftSpeedUp;
+				configAlternativeMaxForceLeft = configAlternativeMaxForceLeftSpeedUp;
+				configAlternativeMinForceRight = configAlternativeMinForceRightSpeedUp;
+				configAlternativeMaxForceRight = configAlternativeMaxForceRightSpeedUp;
+				configFeedbackLength = configFeedbackLengthSpeedUp;
+				PowerMode = PowerModeSpeedUp;
+				EnableForceSpringEffect = EnableForceSpringEffectSpeedUp;
+				ForceSpringStrength = ForceSpringStrengthSpeedUp;
+				EnableDamper = EnableDamperSpeedUp;
+				DamperStrength = DamperStrengthSpeedUp;
+
+				RunningFFB = "RacingFullValueActive1";
 			}
 
 			if (enableLogging)
