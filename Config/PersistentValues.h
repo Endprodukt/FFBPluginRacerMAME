@@ -13,6 +13,7 @@
 extern int StepFFBStrength;
 
 static LONG g_ffbStrengthKeyboardThreadStarted = 0;
+static HHOOK g_ffbStrengthKeyboardHook = nullptr;
 static char g_ffbPluginIniPath[MAX_PATH] = {};
 static char g_increaseFFBStrengthKeyName[64] = {};
 static char g_decreaseFFBStrengthKeyName[64] = {};
@@ -20,13 +21,16 @@ static char g_resetFFBStrengthKeyName[64] = {};
 static int g_increaseFFBStrengthVk = 0;
 static int g_decreaseFFBStrengthVk = 0;
 static int g_resetFFBStrengthVk = 0;
+static bool g_increaseFFBStrengthKeyDown = false;
+static bool g_decreaseFFBStrengthKeyDown = false;
+static bool g_resetFFBStrengthKeyDown = false;
 
 static int FFBStrengthKeyNameToVirtualKey(const char* keyName)
 {
 	if (keyName == nullptr || keyName[0] == '\0')
 		return 0;
 
-	// Single-character keys, e.g. A-Z, 0-9 and punctuation.
+	// Single-character keys, e.g. A-Z and 0-9.
 	if (keyName[1] == '\0')
 	{
 		SHORT vk = VkKeyScanA(keyName[0]);
@@ -109,9 +113,9 @@ static int FFBStrengthKeyNameToVirtualKey(const char* keyName)
 	return 0;
 }
 
-// Resolve and cache everything while the DLL is being initialised. The rest of
-// the plugin also reads its settings during static initialisation. Doing the
-// keyboard read here avoids depending on the game's later working directory.
+// Resolve and cache the keyboard bindings while the DLL is initialised. The
+// existing plugin settings are loaded at the same time, before a game can
+// change the process working directory.
 struct FFBStrengthKeyboardConfigInitializer
 {
 	FFBStrengthKeyboardConfigInitializer()
@@ -306,42 +310,111 @@ static void ApplyKeyboardFFBStrength(FFBStrengthKeyboardAction action)
 	PersistKeyboardFFBStrength();
 }
 
+// Low-level keyboard hook. It sees physical keyboard events even when the
+// plugin itself has no SDL window. Returning CallNextHookEx keeps the key
+// available to MAME/the game as normal.
+static LRESULT CALLBACK FFBStrengthKeyboardHookProc(
+	int nCode,
+	WPARAM wParam,
+	LPARAM lParam)
+{
+	if (nCode == HC_ACTION && lParam != 0)
+	{
+		const KBDLLHOOKSTRUCT* keyboard =
+			reinterpret_cast<const KBDLLHOOKSTRUCT*>(lParam);
+
+		const bool keyDown =
+			wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN;
+		const bool keyUp =
+			wParam == WM_KEYUP || wParam == WM_SYSKEYUP;
+		const DWORD vk = keyboard->vkCode;
+
+		if (g_increaseFFBStrengthVk != 0 &&
+			vk == static_cast<DWORD>(g_increaseFFBStrengthVk))
+		{
+			if (keyDown && !g_increaseFFBStrengthKeyDown)
+			{
+				g_increaseFFBStrengthKeyDown = true;
+				ApplyKeyboardFFBStrength(FFB_STRENGTH_INCREASE);
+			}
+			else if (keyUp)
+			{
+				g_increaseFFBStrengthKeyDown = false;
+			}
+		}
+
+		if (g_decreaseFFBStrengthVk != 0 &&
+			vk == static_cast<DWORD>(g_decreaseFFBStrengthVk))
+		{
+			if (keyDown && !g_decreaseFFBStrengthKeyDown)
+			{
+				g_decreaseFFBStrengthKeyDown = true;
+				ApplyKeyboardFFBStrength(FFB_STRENGTH_DECREASE);
+			}
+			else if (keyUp)
+			{
+				g_decreaseFFBStrengthKeyDown = false;
+			}
+		}
+
+		if (g_resetFFBStrengthVk != 0 &&
+			vk == static_cast<DWORD>(g_resetFFBStrengthVk))
+		{
+			if (keyDown && !g_resetFFBStrengthKeyDown)
+			{
+				g_resetFFBStrengthKeyDown = true;
+				ApplyKeyboardFFBStrength(FFB_STRENGTH_RESET);
+			}
+			else if (keyUp)
+			{
+				g_resetFFBStrengthKeyDown = false;
+			}
+		}
+	}
+
+	return CallNextHookEx(g_ffbStrengthKeyboardHook, nCode, wParam, lParam);
+}
+
 static DWORD WINAPI FFBStrengthKeyboardThread(LPVOID)
 {
-	const int increaseVk = g_increaseFFBStrengthVk;
-	const int decreaseVk = g_decreaseFFBStrengthVk;
-	const int resetVk = g_resetFFBStrengthVk;
-
-	if (increaseVk == 0 && decreaseVk == 0 && resetVk == 0)
-		return 0;
-
-	bool increaseWasDown = false;
-	bool decreaseWasDown = false;
-	bool resetWasDown = false;
-
-	while (true)
+	if (g_increaseFFBStrengthVk == 0 &&
+		g_decreaseFFBStrengthVk == 0 &&
+		g_resetFFBStrengthVk == 0)
 	{
-		const bool increaseDown =
-			increaseVk != 0 && (GetAsyncKeyState(increaseVk) & 0x8000) != 0;
-		const bool decreaseDown =
-			decreaseVk != 0 && (GetAsyncKeyState(decreaseVk) & 0x8000) != 0;
-		const bool resetDown =
-			resetVk != 0 && (GetAsyncKeyState(resetVk) & 0x8000) != 0;
-
-		// Edge-triggered: one adjustment per key press, not every polling cycle.
-		if (increaseDown && !increaseWasDown)
-			ApplyKeyboardFFBStrength(FFB_STRENGTH_INCREASE);
-		if (decreaseDown && !decreaseWasDown)
-			ApplyKeyboardFFBStrength(FFB_STRENGTH_DECREASE);
-		if (resetDown && !resetWasDown)
-			ApplyKeyboardFFBStrength(FFB_STRENGTH_RESET);
-
-		increaseWasDown = increaseDown;
-		decreaseWasDown = decreaseDown;
-		resetWasDown = resetDown;
-
-		Sleep(15);
+		InterlockedExchange(&g_ffbStrengthKeyboardThreadStarted, 0);
+		return 0;
 	}
+
+	HMODULE moduleHandle = nullptr;
+	GetModuleHandleExA(
+		GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+		GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+		(LPCSTR)&FFBStrengthKeyboardHookProc,
+		&moduleHandle);
+
+	g_ffbStrengthKeyboardHook = SetWindowsHookExA(
+		WH_KEYBOARD_LL,
+		FFBStrengthKeyboardHookProc,
+		moduleHandle,
+		0);
+
+	if (g_ffbStrengthKeyboardHook == nullptr)
+	{
+		InterlockedExchange(&g_ffbStrengthKeyboardThreadStarted, 0);
+		return 0;
+	}
+
+	MSG message;
+	while (GetMessage(&message, nullptr, 0, 0) > 0)
+	{
+		TranslateMessage(&message);
+		DispatchMessage(&message);
+	}
+
+	UnhookWindowsHookEx(g_ffbStrengthKeyboardHook);
+	g_ffbStrengthKeyboardHook = nullptr;
+	InterlockedExchange(&g_ffbStrengthKeyboardThreadStarted, 0);
+	return 0;
 }
 
 static void StartFFBStrengthKeyboardThread()
