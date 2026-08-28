@@ -4,6 +4,7 @@
 #include "SDL.h"
 #include <cstdio>
 #include <cstring>
+#include <string>
 
 // Keep the existing persistence mapping intact, but wrap its setup function so
 // we can guarantee safe fallback keys and add keyboard input support without
