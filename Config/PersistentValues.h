@@ -12,27 +12,14 @@
 
 extern int StepFFBStrength;
 
-// WritePrivateProfileStringA treats a NULL key name as a request to delete all
-// keys in the section. Never allow that from the dynamic FFB persistence path.
-// A NULL value is intentionally still allowed because Windows uses that to
-// delete one specific key.
-static BOOL FFBPluginSafeWritePrivateProfileStringA(
-	LPCSTR appName,
-	LPCSTR keyName,
-	LPCSTR value,
-	LPCSTR fileName)
-{
-	if (appName == nullptr || keyName == nullptr || fileName == nullptr)
-		return FALSE;
-
-	return ::WritePrivateProfileStringA(appName, keyName, value, fileName);
-}
-
-// PersistentValues.h is included near the top of DllMain.cpp, so this protects
-// all later ANSI INI writes in that translation unit from a NULL key name.
-#define WritePrivateProfileStringA FFBPluginSafeWritePrivateProfileStringA
-
 static LONG g_ffbStrengthKeyboardThreadStarted = 0;
+static char g_ffbPluginIniPath[MAX_PATH] = {};
+static char g_increaseFFBStrengthKeyName[64] = {};
+static char g_decreaseFFBStrengthKeyName[64] = {};
+static char g_resetFFBStrengthKeyName[64] = {};
+static int g_increaseFFBStrengthVk = 0;
+static int g_decreaseFFBStrengthVk = 0;
+static int g_resetFFBStrengthVk = 0;
 
 static int FFBStrengthKeyNameToVirtualKey(const char* keyName)
 {
@@ -109,7 +96,8 @@ static int FFBStrengthKeyNameToVirtualKey(const char* keyName)
 		{ "Keypad -", VK_SUBTRACT },
 		{ "Keypad *", VK_MULTIPLY },
 		{ "Keypad /", VK_DIVIDE },
-		{ "Keypad .", VK_DECIMAL }
+		{ "Keypad .", VK_DECIMAL },
+		{ "Keypad Enter", VK_RETURN }
 	};
 
 	for (const KeyNameMap& entry : keyMap)
@@ -120,6 +108,80 @@ static int FFBStrengthKeyNameToVirtualKey(const char* keyName)
 
 	return 0;
 }
+
+// Resolve and cache everything while the DLL is being initialised. The rest of
+// the plugin also reads its settings during static initialisation. Doing the
+// keyboard read here avoids depending on the game's later working directory.
+struct FFBStrengthKeyboardConfigInitializer
+{
+	FFBStrengthKeyboardConfigInitializer()
+	{
+		DWORD pathLength = GetFullPathNameA(
+			".\\FFBPlugin.ini",
+			MAX_PATH,
+			g_ffbPluginIniPath,
+			nullptr);
+
+		if (pathLength == 0 || pathLength >= MAX_PATH)
+			strcpy_s(g_ffbPluginIniPath, ".\\FFBPlugin.ini");
+
+		GetPrivateProfileStringA(
+			"Settings", "IncreaseFFBStrengthKey", "",
+			g_increaseFFBStrengthKeyName,
+			sizeof(g_increaseFFBStrengthKeyName),
+			g_ffbPluginIniPath);
+
+		GetPrivateProfileStringA(
+			"Settings", "DecreaseFFBStrengthKey", "",
+			g_decreaseFFBStrengthKeyName,
+			sizeof(g_decreaseFFBStrengthKeyName),
+			g_ffbPluginIniPath);
+
+		GetPrivateProfileStringA(
+			"Settings", "ResetFFBStrengthKey", "",
+			g_resetFFBStrengthKeyName,
+			sizeof(g_resetFFBStrengthKeyName),
+			g_ffbPluginIniPath);
+
+		g_increaseFFBStrengthVk =
+			FFBStrengthKeyNameToVirtualKey(g_increaseFFBStrengthKeyName);
+		g_decreaseFFBStrengthVk =
+			FFBStrengthKeyNameToVirtualKey(g_decreaseFFBStrengthKeyName);
+		g_resetFFBStrengthVk =
+			FFBStrengthKeyNameToVirtualKey(g_resetFFBStrengthKeyName);
+	}
+};
+
+static FFBStrengthKeyboardConfigInitializer g_ffbStrengthKeyboardConfigInitializer;
+
+// WritePrivateProfileStringA treats a NULL key name as a request to delete all
+// keys in the section. Never allow that from the dynamic FFB persistence path.
+// Also pin writes to the absolute FFBPlugin.ini path resolved at DLL load so a
+// later working-directory change cannot redirect persistence elsewhere.
+static BOOL FFBPluginSafeWritePrivateProfileStringA(
+	LPCSTR appName,
+	LPCSTR keyName,
+	LPCSTR value,
+	LPCSTR fileName)
+{
+	if (appName == nullptr || keyName == nullptr || fileName == nullptr)
+		return FALSE;
+
+	LPCSTR resolvedFileName = fileName;
+	if (g_ffbPluginIniPath[0] != '\0' &&
+		(lstrcmpiA(fileName, ".\\FFBPlugin.ini") == 0 ||
+		 lstrcmpiA(fileName, "FFBPlugin.ini") == 0))
+	{
+		resolvedFileName = g_ffbPluginIniPath;
+	}
+
+	return ::WritePrivateProfileStringA(
+		appName, keyName, value, resolvedFileName);
+}
+
+// PersistentValues.h is included near the top of DllMain.cpp, so this protects
+// all later ANSI INI writes in that translation unit from a NULL key name.
+#define WritePrivateProfileStringA FFBPluginSafeWritePrivateProfileStringA
 
 static void PersistKeyboardFFBStrength()
 {
@@ -141,13 +203,13 @@ static void PersistKeyboardFFBStrength()
 			"Settings",
 			CustomAlternativeMaxForceLeft,
 			leftValue.c_str(),
-			".\\FFBPlugin.ini");
+			g_ffbPluginIniPath);
 
 		FFBPluginSafeWritePrivateProfileStringA(
 			"Settings",
 			CustomAlternativeMaxForceRight,
 			rightValue.c_str(),
-			".\\FFBPlugin.ini");
+			g_ffbPluginIniPath);
 	}
 	else
 	{
@@ -160,7 +222,7 @@ static void PersistKeyboardFFBStrength()
 			"Settings",
 			CustomMaxForce,
 			value.c_str(),
-			".\\FFBPlugin.ini");
+			g_ffbPluginIniPath);
 	}
 }
 
@@ -246,23 +308,9 @@ static void ApplyKeyboardFFBStrength(FFBStrengthKeyboardAction action)
 
 static DWORD WINAPI FFBStrengthKeyboardThread(LPVOID)
 {
-	char increaseKeyName[64] = {};
-	char decreaseKeyName[64] = {};
-	char resetKeyName[64] = {};
-
-	GetPrivateProfileStringA(
-		"Settings", "IncreaseFFBStrengthKey", "",
-		increaseKeyName, sizeof(increaseKeyName), ".\\FFBPlugin.ini");
-	GetPrivateProfileStringA(
-		"Settings", "DecreaseFFBStrengthKey", "",
-		decreaseKeyName, sizeof(decreaseKeyName), ".\\FFBPlugin.ini");
-	GetPrivateProfileStringA(
-		"Settings", "ResetFFBStrengthKey", "",
-		resetKeyName, sizeof(resetKeyName), ".\\FFBPlugin.ini");
-
-	const int increaseVk = FFBStrengthKeyNameToVirtualKey(increaseKeyName);
-	const int decreaseVk = FFBStrengthKeyNameToVirtualKey(decreaseKeyName);
-	const int resetVk = FFBStrengthKeyNameToVirtualKey(resetKeyName);
+	const int increaseVk = g_increaseFFBStrengthVk;
+	const int decreaseVk = g_decreaseFFBStrengthVk;
+	const int resetVk = g_resetFFBStrengthVk;
 
 	if (increaseVk == 0 && decreaseVk == 0 && resetVk == 0)
 		return 0;
