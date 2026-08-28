@@ -1,22 +1,36 @@
 #pragma once
 
 #include <Windows.h>
-#include "SDL.h"
 #include <cstdio>
 #include <cstring>
 #include <string>
 
-// Keep the existing persistence mapping intact, but wrap its setup function so
-// we can guarantee safe fallback keys and add keyboard input support without
-// changing the established per-game logic.
+// Keep the established per-game persistence mappings intact.
 #define CustomFFBStrengthSetup OriginalCustomFFBStrengthSetup
 #include "PersistentValuesOriginal.h"
 #undef CustomFFBStrengthSetup
 
-extern int IncreaseFFBStrength;
-extern int DecreaseFFBStrength;
-extern int ResetFFBStrength;
-extern int joystick_index1;
+extern int StepFFBStrength;
+
+// WritePrivateProfileStringA treats a NULL key name as a request to delete all
+// keys in the section. Never allow that from the dynamic FFB persistence path.
+// A NULL value is intentionally still allowed because Windows uses that to
+// delete one specific key.
+static BOOL FFBPluginSafeWritePrivateProfileStringA(
+	LPCSTR appName,
+	LPCSTR keyName,
+	LPCSTR value,
+	LPCSTR fileName)
+{
+	if (appName == nullptr || keyName == nullptr || fileName == nullptr)
+		return FALSE;
+
+	return ::WritePrivateProfileStringA(appName, keyName, value, fileName);
+}
+
+// PersistentValues.h is included near the top of DllMain.cpp, so this protects
+// all later ANSI INI writes in that translation unit from a NULL key name.
+#define WritePrivateProfileStringA FFBPluginSafeWritePrivateProfileStringA
 
 static LONG g_ffbStrengthKeyboardThreadStarted = 0;
 
@@ -25,7 +39,7 @@ static int FFBStrengthKeyNameToVirtualKey(const char* keyName)
 	if (keyName == nullptr || keyName[0] == '\0')
 		return 0;
 
-	// Single character keys (A-Z, 0-9, punctuation).
+	// Single-character keys, e.g. A-Z, 0-9 and punctuation.
 	if (keyName[1] == '\0')
 	{
 		SHORT vk = VkKeyScanA(keyName[0]);
@@ -34,7 +48,8 @@ static int FFBStrengthKeyNameToVirtualKey(const char* keyName)
 	}
 
 	int functionKey = 0;
-	if ((keyName[0] == 'F' || keyName[0] == 'f') && sscanf_s(keyName + 1, "%d", &functionKey) == 1)
+	if ((keyName[0] == 'F' || keyName[0] == 'f') &&
+		sscanf_s(keyName + 1, "%d", &functionKey) == 1)
 	{
 		if (functionKey >= 1 && functionKey <= 24)
 			return VK_F1 + functionKey - 1;
@@ -106,19 +121,127 @@ static int FFBStrengthKeyNameToVirtualKey(const char* keyName)
 	return 0;
 }
 
-static void PushFFBStrengthButtonEvent(int button)
+static void PersistKeyboardFFBStrength()
 {
-	if (button < 0 || button > 255)
+	if (!EnableFFBStrengthPersistence)
 		return;
 
-	SDL_Event event;
-	SDL_zero(event);
-	event.type = SDL_JOYBUTTONDOWN;
-	event.jbutton.type = SDL_JOYBUTTONDOWN;
-	event.jbutton.which = joystick_index1;
-	event.jbutton.button = static_cast<Uint8>(button);
-	event.jbutton.state = SDL_PRESSED;
-	SDL_PushEvent(&event);
+	if (AlternativeFFB)
+	{
+		if (CustomAlternativeMaxForceLeft == nullptr ||
+			CustomAlternativeMaxForceRight == nullptr)
+			return;
+
+		const std::string leftValue =
+			std::to_string(configAlternativeMaxForceLeft);
+		const std::string rightValue =
+			std::to_string(configAlternativeMaxForceRight);
+
+		FFBPluginSafeWritePrivateProfileStringA(
+			"Settings",
+			CustomAlternativeMaxForceLeft,
+			leftValue.c_str(),
+			".\\FFBPlugin.ini");
+
+		FFBPluginSafeWritePrivateProfileStringA(
+			"Settings",
+			CustomAlternativeMaxForceRight,
+			rightValue.c_str(),
+			".\\FFBPlugin.ini");
+	}
+	else
+	{
+		if (CustomMaxForce == nullptr)
+			return;
+
+		const std::string value = std::to_string(configMaxForce);
+
+		FFBPluginSafeWritePrivateProfileStringA(
+			"Settings",
+			CustomMaxForce,
+			value.c_str(),
+			".\\FFBPlugin.ini");
+	}
+}
+
+enum FFBStrengthKeyboardAction
+{
+	FFB_STRENGTH_INCREASE,
+	FFB_STRENGTH_DECREASE,
+	FFB_STRENGTH_RESET
+};
+
+static void ApplyKeyboardFFBStrength(FFBStrengthKeyboardAction action)
+{
+	if (action == FFB_STRENGTH_RESET)
+	{
+		DefaultConfigValues();
+		PersistKeyboardFFBStrength();
+		return;
+	}
+
+	if (AlternativeFFB)
+	{
+		if (action == FFB_STRENGTH_INCREASE)
+		{
+			if (configAlternativeMaxForceRight >= 0 &&
+				configAlternativeMaxForceRight < 100)
+			{
+				configAlternativeMaxForceRight += StepFFBStrength;
+				if (configAlternativeMaxForceRight > 100)
+					configAlternativeMaxForceRight = 100;
+			}
+
+			if (configAlternativeMaxForceLeft <= 0 &&
+				configAlternativeMaxForceLeft > -100)
+			{
+				configAlternativeMaxForceLeft -= StepFFBStrength;
+				if (configAlternativeMaxForceLeft < -100)
+					configAlternativeMaxForceLeft = -100;
+			}
+		}
+		else
+		{
+			if (configAlternativeMaxForceRight > 0 &&
+				configAlternativeMaxForceRight <= 100)
+			{
+				configAlternativeMaxForceRight -= StepFFBStrength;
+				if (configAlternativeMaxForceRight < 0)
+					configAlternativeMaxForceRight = 0;
+			}
+
+			if (configAlternativeMaxForceLeft < 0 &&
+				configAlternativeMaxForceLeft >= -100)
+			{
+				configAlternativeMaxForceLeft += StepFFBStrength;
+				if (configAlternativeMaxForceLeft > 0)
+					configAlternativeMaxForceLeft = 0;
+			}
+		}
+	}
+	else
+	{
+		if (action == FFB_STRENGTH_INCREASE)
+		{
+			if (configMaxForce >= 0 && configMaxForce < 100)
+			{
+				configMaxForce += StepFFBStrength;
+				if (configMaxForce > 100)
+					configMaxForce = 100;
+			}
+		}
+		else
+		{
+			if (configMaxForce > 0 && configMaxForce <= 100)
+			{
+				configMaxForce -= StepFFBStrength;
+				if (configMaxForce < 0)
+					configMaxForce = 0;
+			}
+		}
+	}
+
+	PersistKeyboardFFBStrength();
 }
 
 static DWORD WINAPI FFBStrengthKeyboardThread(LPVOID)
@@ -127,9 +250,15 @@ static DWORD WINAPI FFBStrengthKeyboardThread(LPVOID)
 	char decreaseKeyName[64] = {};
 	char resetKeyName[64] = {};
 
-	GetPrivateProfileStringA("Settings", "IncreaseFFBStrengthKey", "", increaseKeyName, sizeof(increaseKeyName), ".\\FFBPlugin.ini");
-	GetPrivateProfileStringA("Settings", "DecreaseFFBStrengthKey", "", decreaseKeyName, sizeof(decreaseKeyName), ".\\FFBPlugin.ini");
-	GetPrivateProfileStringA("Settings", "ResetFFBStrengthKey", "", resetKeyName, sizeof(resetKeyName), ".\\FFBPlugin.ini");
+	GetPrivateProfileStringA(
+		"Settings", "IncreaseFFBStrengthKey", "",
+		increaseKeyName, sizeof(increaseKeyName), ".\\FFBPlugin.ini");
+	GetPrivateProfileStringA(
+		"Settings", "DecreaseFFBStrengthKey", "",
+		decreaseKeyName, sizeof(decreaseKeyName), ".\\FFBPlugin.ini");
+	GetPrivateProfileStringA(
+		"Settings", "ResetFFBStrengthKey", "",
+		resetKeyName, sizeof(resetKeyName), ".\\FFBPlugin.ini");
 
 	const int increaseVk = FFBStrengthKeyNameToVirtualKey(increaseKeyName);
 	const int decreaseVk = FFBStrengthKeyNameToVirtualKey(decreaseKeyName);
@@ -138,35 +267,26 @@ static DWORD WINAPI FFBStrengthKeyboardThread(LPVOID)
 	if (increaseVk == 0 && decreaseVk == 0 && resetVk == 0)
 		return 0;
 
-	// 99 is the GUI's "Not Defined" value. If bindings are undefined or
-	// duplicated, use reserved in-memory button IDs for the synthetic events.
-	const int originalIncrease = IncreaseFFBStrength;
-	const int originalDecrease = DecreaseFFBStrength;
-	const int originalReset = ResetFFBStrength;
-
-	if (increaseVk != 0 && (originalIncrease == 99 || originalIncrease < 0 || originalIncrease > 255 || originalIncrease == originalDecrease || originalIncrease == originalReset))
-		IncreaseFFBStrength = 250;
-	if (decreaseVk != 0 && (originalDecrease == 99 || originalDecrease < 0 || originalDecrease > 255 || originalDecrease == originalIncrease || originalDecrease == originalReset))
-		DecreaseFFBStrength = 251;
-	if (resetVk != 0 && (originalReset == 99 || originalReset < 0 || originalReset > 255 || originalReset == originalIncrease || originalReset == originalDecrease))
-		ResetFFBStrength = 252;
-
 	bool increaseWasDown = false;
 	bool decreaseWasDown = false;
 	bool resetWasDown = false;
 
 	while (true)
 	{
-		const bool increaseDown = increaseVk != 0 && (GetAsyncKeyState(increaseVk) & 0x8000) != 0;
-		const bool decreaseDown = decreaseVk != 0 && (GetAsyncKeyState(decreaseVk) & 0x8000) != 0;
-		const bool resetDown = resetVk != 0 && (GetAsyncKeyState(resetVk) & 0x8000) != 0;
+		const bool increaseDown =
+			increaseVk != 0 && (GetAsyncKeyState(increaseVk) & 0x8000) != 0;
+		const bool decreaseDown =
+			decreaseVk != 0 && (GetAsyncKeyState(decreaseVk) & 0x8000) != 0;
+		const bool resetDown =
+			resetVk != 0 && (GetAsyncKeyState(resetVk) & 0x8000) != 0;
 
+		// Edge-triggered: one adjustment per key press, not every polling cycle.
 		if (increaseDown && !increaseWasDown)
-			PushFFBStrengthButtonEvent(IncreaseFFBStrength);
+			ApplyKeyboardFFBStrength(FFB_STRENGTH_INCREASE);
 		if (decreaseDown && !decreaseWasDown)
-			PushFFBStrengthButtonEvent(DecreaseFFBStrength);
+			ApplyKeyboardFFBStrength(FFB_STRENGTH_DECREASE);
 		if (resetDown && !resetWasDown)
-			PushFFBStrengthButtonEvent(ResetFFBStrength);
+			ApplyKeyboardFFBStrength(FFB_STRENGTH_RESET);
 
 		increaseWasDown = increaseDown;
 		decreaseWasDown = decreaseDown;
@@ -178,10 +298,13 @@ static DWORD WINAPI FFBStrengthKeyboardThread(LPVOID)
 
 static void StartFFBStrengthKeyboardThread()
 {
-	if (InterlockedCompareExchange(&g_ffbStrengthKeyboardThreadStarted, 1, 0) != 0)
+	if (InterlockedCompareExchange(
+		&g_ffbStrengthKeyboardThreadStarted, 1, 0) != 0)
 		return;
 
-	HANDLE thread = CreateThread(nullptr, 0, FFBStrengthKeyboardThread, nullptr, 0, nullptr);
+	HANDLE thread = CreateThread(
+		nullptr, 0, FFBStrengthKeyboardThread, nullptr, 0, nullptr);
+
 	if (thread != nullptr)
 		CloseHandle(thread);
 	else
@@ -190,25 +313,31 @@ static void StartFFBStrengthKeyboardThread()
 
 void CustomFFBStrengthSetup()
 {
-	// Always begin with valid generic keys. The old implementation leaves these
-	// pointers null for an unmapped game, and WritePrivateProfileStringA treats a
-	// null key name as a request to delete the complete INI section.
+	// Always start with valid generic keys. Individual game mappings below may
+	// replace them. This is a second line of defence in addition to the safe INI
+	// writer above.
 	CustomMaxForce = "MaxForce";
 	CustomAlternativeMaxForceLeft = "AlternativeMaxForceLeft";
 	CustomAlternativeMaxForceRight = "AlternativeMaxForceRight";
 
 	OriginalCustomFFBStrengthSetup();
 
-	// Speed Up uses per-game settings just like the other MAME racers.
+	// Speed Up uses per-game values like the other MAME racing games.
 	if (configGameId == 22 && romname != nullptr)
 	{
-		if (strcmp(romname, "speedup") == 0 || strcmp(romname, "speedup10") == 0 || strcmp(romname, "speedup12") == 0 ||
-			strcmp(romname, "speedup20") == 0 || strcmp(romname, "speedup20a") == 0 || strcmp(romname, "speedup21") == 0)
+		if (strcmp(romname, "speedup") == 0 ||
+			strcmp(romname, "speedup10") == 0 ||
+			strcmp(romname, "speedup12") == 0 ||
+			strcmp(romname, "speedup20") == 0 ||
+			strcmp(romname, "speedup20a") == 0 ||
+			strcmp(romname, "speedup21") == 0)
 		{
 			if (AlternativeFFB == 1)
 			{
-				CustomAlternativeMaxForceLeft = "AlternativeMaxForceLeftSpeedUp";
-				CustomAlternativeMaxForceRight = "AlternativeMaxForceRightSpeedUp";
+				CustomAlternativeMaxForceLeft =
+					"AlternativeMaxForceLeftSpeedUp";
+				CustomAlternativeMaxForceRight =
+					"AlternativeMaxForceRightSpeedUp";
 			}
 			else
 			{
