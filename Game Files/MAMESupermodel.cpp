@@ -223,6 +223,7 @@ std::string pcboutput0("pcboutput0");
 std::string mcuoutput1("mcuoutput1");
 std::string output0("output0");
 std::string wheel_motor("wheel_motor");
+std::string m_wheel_motor("m_wheel_motor");
 std::string led2("led2");
 std::string cpuled6("cpuled6");
 std::string Vibration_motor("Vibration_motor");
@@ -1142,7 +1143,7 @@ static void FFBGameEffects(EffectConstants* constants, Helpers* helpers, EffectT
 
 	if (RunningFFB == RacingFullValueActive1)
 	{
-		if (name == wheel || name == wheel_motor)
+		if (name == wheel || name == wheel_motor || name == m_wheel_motor)
 		{
 			auto sendConstant = [&](int direction, double strength)
 				{
@@ -1163,9 +1164,9 @@ static void FFBGameEffects(EffectConstants* constants, Helpers* helpers, EffectT
 				return;
 			}
 
-			if (stateFFB > 0x80 && stateFFB < 0x100)
+			if (stateFFB >= 0x80 && stateFFB < 0x100)
 			{
-				double percentForce = (256 - stateFFB) / 126.0;
+				double percentForce = (256 - stateFFB) / 128.0;
 				if (percentForce > 1.0) percentForce = 1.0;
 
 				triggers->Rumble(percentForce, 0, 100);
@@ -1173,7 +1174,7 @@ static void FFBGameEffects(EffectConstants* constants, Helpers* helpers, EffectT
 			}
 			else if (stateFFB > 0x00 && stateFFB < 0x80)
 			{
-				double percentForce = stateFFB / 126.0;
+				double percentForce = stateFFB / 127.0;
 				if (percentForce > 1.0) percentForce = 1.0;
 
 				triggers->Rumble(0, percentForce, 100);
