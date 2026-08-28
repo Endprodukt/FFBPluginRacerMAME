@@ -27,6 +27,9 @@ static bool g_increaseFFBStrengthKeyDown = false;
 static bool g_decreaseFFBStrengthKeyDown = false;
 static bool g_resetFFBStrengthKeyDown = false;
 
+static void StartFFBStrengthKeyboardThread();
+void CustomFFBStrengthSetup();
+
 static void FFBKeyboardDebugLog(const char* format, ...)
 {
 	if (g_ffbKeyboardDebugLogPath[0] == '\0')
@@ -213,6 +216,12 @@ struct FFBStrengthKeyboardConfigInitializer
 			g_increaseFFBStrengthKeyName, g_increaseFFBStrengthVk,
 			g_decreaseFFBStrengthKeyName, g_decreaseFFBStrengthVk,
 			g_resetFFBStrengthKeyName, g_resetFFBStrengthVk);
+
+		// The normal joystick adjustment loop reaches CustomFFBStrengthSetup only
+		// after its own startup path. Start keyboard capture independently so it
+		// cannot be blocked by that loop.
+		FFBKeyboardDebugLog("INIT starting keyboard thread independently");
+		StartFFBStrengthKeyboardThread();
 	}
 };
 
@@ -314,6 +323,12 @@ enum FFBStrengthKeyboardAction
 
 static void ApplyKeyboardFFBStrength(FFBStrengthKeyboardAction action)
 {
+	// Resolve the current game's persistence key lazily on the actual key press.
+	// This is late enough for the MAME ROM name to be known, and keeps keyboard
+	// persistence independent from whether the joystick adjustment loop called
+	// its setup function first.
+	CustomFFBStrengthSetup();
+
 	const int beforeMaxForce = configMaxForce;
 	const int beforeAlternativeLeft = configAlternativeMaxForceLeft;
 	const int beforeAlternativeRight = configAlternativeMaxForceRight;
