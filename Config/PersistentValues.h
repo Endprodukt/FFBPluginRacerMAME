@@ -83,7 +83,6 @@ static int FFBStrengthKeyNameToVirtualKey(const char* keyName)
 	if (keyName == nullptr || keyName[0] == '\0')
 		return 0;
 
-	// Single-character keys, e.g. A-Z and 0-9.
 	if (keyName[1] == '\0')
 	{
 		SHORT vk = VkKeyScanA(keyName[0]);
@@ -166,9 +165,6 @@ static int FFBStrengthKeyNameToVirtualKey(const char* keyName)
 	return 0;
 }
 
-// Resolve and cache the keyboard bindings while the DLL is initialised. The
-// existing plugin settings are loaded at the same time, before a game can
-// change the process working directory.
 struct FFBStrengthKeyboardConfigInitializer
 {
 	FFBStrengthKeyboardConfigInitializer()
@@ -217,9 +213,6 @@ struct FFBStrengthKeyboardConfigInitializer
 			g_decreaseFFBStrengthKeyName, g_decreaseFFBStrengthVk,
 			g_resetFFBStrengthKeyName, g_resetFFBStrengthVk);
 
-		// The normal joystick adjustment loop reaches CustomFFBStrengthSetup only
-		// after its own startup path. Start keyboard capture independently so it
-		// cannot be blocked by that loop.
 		FFBKeyboardDebugLog("INIT starting keyboard thread independently");
 		StartFFBStrengthKeyboardThread();
 	}
@@ -227,10 +220,6 @@ struct FFBStrengthKeyboardConfigInitializer
 
 static FFBStrengthKeyboardConfigInitializer g_ffbStrengthKeyboardConfigInitializer;
 
-// WritePrivateProfileStringA treats a NULL key name as a request to delete all
-// keys in the section. Never allow that from the dynamic FFB persistence path.
-// Also pin writes to the absolute FFBPlugin.ini path resolved at DLL load so a
-// later working-directory change cannot redirect persistence elsewhere.
 static BOOL FFBPluginSafeWritePrivateProfileStringA(
 	LPCSTR appName,
 	LPCSTR keyName,
@@ -252,8 +241,6 @@ static BOOL FFBPluginSafeWritePrivateProfileStringA(
 		appName, keyName, value, resolvedFileName);
 }
 
-// PersistentValues.h is included near the top of DllMain.cpp, so this protects
-// all later ANSI INI writes in that translation unit from a NULL key name.
 #define WritePrivateProfileStringA FFBPluginSafeWritePrivateProfileStringA
 
 static void PersistKeyboardFFBStrength()
@@ -323,10 +310,6 @@ enum FFBStrengthKeyboardAction
 
 static void ApplyKeyboardFFBStrength(FFBStrengthKeyboardAction action)
 {
-	// Resolve the current game's persistence key lazily on the actual key press.
-	// This is late enough for the MAME ROM name to be known, and keeps keyboard
-	// persistence independent from whether the joystick adjustment loop called
-	// its setup function first.
 	CustomFFBStrengthSetup();
 
 	const int beforeMaxForce = configMaxForce;
@@ -416,9 +399,6 @@ static void ApplyKeyboardFFBStrength(FFBStrengthKeyboardAction action)
 	PersistKeyboardFFBStrength();
 }
 
-// Low-level keyboard hook. It sees physical keyboard events even when the
-// plugin itself has no SDL window. Returning CallNextHookEx keeps the key
-// available to MAME/the game as normal.
 static LRESULT CALLBACK FFBStrengthKeyboardHookProc(
 	int nCode,
 	WPARAM wParam,
@@ -493,10 +473,31 @@ static LRESULT CALLBACK FFBStrengthKeyboardHookProc(
 	return CallNextHookEx(g_ffbStrengthKeyboardHook, nCode, wParam, lParam);
 }
 
+static bool FFBStrengthPollKey(int virtualKey, bool& wasDown)
+{
+	if (virtualKey == 0)
+	{
+		wasDown = false;
+		return false;
+	}
+
+	const bool isDown = (GetAsyncKeyState(virtualKey) & 0x8000) != 0;
+	if (isDown && !wasDown)
+	{
+		wasDown = true;
+		return true;
+	}
+
+	if (!isDown)
+		wasDown = false;
+
+	return false;
+}
+
 static DWORD WINAPI FFBStrengthKeyboardThread(LPVOID)
 {
 	FFBKeyboardDebugLog(
-		"THREAD start vk increase=%d decrease=%d reset=%d",
+		"THREAD polling start vk increase=%d decrease=%d reset=%d",
 		g_increaseFFBStrengthVk,
 		g_decreaseFFBStrengthVk,
 		g_resetFFBStrengthVk);
@@ -510,53 +511,45 @@ static DWORD WINAPI FFBStrengthKeyboardThread(LPVOID)
 		return 0;
 	}
 
-	HMODULE moduleHandle = nullptr;
-	const BOOL moduleResult = GetModuleHandleExA(
-		GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
-		GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-		(LPCSTR)&FFBStrengthKeyboardHookProc,
-		&moduleHandle);
+	FFBKeyboardDebugLog("THREAD polling active");
 
-	FFBKeyboardDebugLog(
-		"THREAD module result=%d module=%p error=%lu",
-		moduleResult,
-		moduleHandle,
-		static_cast<unsigned long>(GetLastError()));
-
-	g_ffbStrengthKeyboardHook = SetWindowsHookExA(
-		WH_KEYBOARD_LL,
-		FFBStrengthKeyboardHookProc,
-		moduleHandle,
-		0);
-
-	if (g_ffbStrengthKeyboardHook == nullptr)
+	while (true)
 	{
-		FFBKeyboardDebugLog(
-			"THREAD hook FAILED error=%lu",
-			static_cast<unsigned long>(GetLastError()));
-		InterlockedExchange(&g_ffbStrengthKeyboardThreadStarted, 0);
-		return 0;
-	}
-
-	FFBKeyboardDebugLog("THREAD hook installed handle=%p", g_ffbStrengthKeyboardHook);
-
-	MSG message;
-	const BOOL messageResult = GetMessage(&message, nullptr, 0, 0);
-	if (messageResult > 0)
-	{
-		do
+		if (EnableFFBStrengthDynamicAdjustment)
 		{
-			TranslateMessage(&message);
-			DispatchMessage(&message);
-		}
-		while (GetMessage(&message, nullptr, 0, 0) > 0);
-	}
+			if (FFBStrengthPollKey(
+				g_increaseFFBStrengthVk,
+				g_increaseFFBStrengthKeyDown))
+			{
+				FFBKeyboardDebugLog("POLL match increase");
+				ApplyKeyboardFFBStrength(FFB_STRENGTH_INCREASE);
+			}
 
-	FFBKeyboardDebugLog("THREAD message loop ended");
-	UnhookWindowsHookEx(g_ffbStrengthKeyboardHook);
-	g_ffbStrengthKeyboardHook = nullptr;
-	InterlockedExchange(&g_ffbStrengthKeyboardThreadStarted, 0);
-	return 0;
+			if (FFBStrengthPollKey(
+				g_decreaseFFBStrengthVk,
+				g_decreaseFFBStrengthKeyDown))
+			{
+				FFBKeyboardDebugLog("POLL match decrease");
+				ApplyKeyboardFFBStrength(FFB_STRENGTH_DECREASE);
+			}
+
+			if (FFBStrengthPollKey(
+				g_resetFFBStrengthVk,
+				g_resetFFBStrengthKeyDown))
+			{
+				FFBKeyboardDebugLog("POLL match reset");
+				ApplyKeyboardFFBStrength(FFB_STRENGTH_RESET);
+			}
+		}
+		else
+		{
+			g_increaseFFBStrengthKeyDown = false;
+			g_decreaseFFBStrengthKeyDown = false;
+			g_resetFFBStrengthKeyDown = false;
+		}
+
+		Sleep(16);
+	}
 }
 
 static void StartFFBStrengthKeyboardThread()
@@ -588,16 +581,12 @@ static void StartFFBStrengthKeyboardThread()
 
 void CustomFFBStrengthSetup()
 {
-	// Always start with valid generic keys. Individual game mappings below may
-	// replace them. This is a second line of defence in addition to the safe INI
-	// writer above.
 	CustomMaxForce = "MaxForce";
 	CustomAlternativeMaxForceLeft = "AlternativeMaxForceLeft";
 	CustomAlternativeMaxForceRight = "AlternativeMaxForceRight";
 
 	OriginalCustomFFBStrengthSetup();
 
-	// Speed Up uses per-game values like the other MAME racing games.
 	if (configGameId == 22 && romname != nullptr)
 	{
 		if (strcmp(romname, "speedup") == 0 ||
