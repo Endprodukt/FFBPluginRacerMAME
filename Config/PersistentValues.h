@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Windows.h>
+#include <sapi.h>
 #include <cstdio>
 #include <cstring>
 #include <cstdarg>
@@ -13,6 +14,7 @@
 
 extern int StepFFBStrength;
 extern int EnableFFBStrengthDynamicAdjustment;
+extern int EnableFFBStrengthTextToSpeech;
 
 static LONG g_ffbStrengthKeyboardThreadStarted = 0;
 static HHOOK g_ffbStrengthKeyboardHook = nullptr;
@@ -302,6 +304,68 @@ static void PersistKeyboardFFBStrength()
 	}
 }
 
+static void SpeakKeyboardFFBStrength()
+{
+	if (!EnableFFBStrengthTextToSpeech)
+		return;
+
+	const int value = AlternativeFFB
+		? configAlternativeMaxForceRight
+		: configMaxForce;
+
+	char text[64] = {};
+	sprintf_s(text, "Max Force: %d", value);
+
+	wchar_t wideText[64] = {};
+	if (MultiByteToWideChar(
+		CP_ACP, 0, text, -1,
+		wideText, static_cast<int>(sizeof(wideText) / sizeof(wideText[0]))) == 0)
+	{
+		FFBKeyboardDebugLog(
+			"TTS conversion failed error=%lu",
+			static_cast<unsigned long>(GetLastError()));
+		return;
+	}
+
+	const HRESULT initializeResult = CoInitialize(nullptr);
+	const bool uninitialize = SUCCEEDED(initializeResult);
+
+	ISpVoice* voice = nullptr;
+	const HRESULT createResult = CoCreateInstance(
+		CLSID_SpVoice,
+		nullptr,
+		CLSCTX_ALL,
+		IID_ISpVoice,
+		reinterpret_cast<void**>(&voice));
+
+	if (SUCCEEDED(createResult) && voice != nullptr)
+	{
+		voice->SetRate(3);
+		voice->SetOutput(nullptr, TRUE);
+		const HRESULT speakResult = voice->Speak(
+			wideText,
+			SPF_PURGEBEFORESPEAK,
+			nullptr);
+
+		FFBKeyboardDebugLog(
+			"TTS max=%d hr=0x%08lx",
+			value,
+			static_cast<unsigned long>(speakResult));
+
+		voice->Release();
+	}
+	else
+	{
+		FFBKeyboardDebugLog(
+			"TTS voice creation failed hr=0x%08lx init=0x%08lx",
+			static_cast<unsigned long>(createResult),
+			static_cast<unsigned long>(initializeResult));
+	}
+
+	if (uninitialize)
+		CoUninitialize();
+}
+
 enum FFBStrengthKeyboardAction
 {
 	FFB_STRENGTH_INCREASE,
@@ -326,6 +390,7 @@ static void ApplyKeyboardFFBStrength(FFBStrengthKeyboardAction action)
 			beforeAlternativeLeft, configAlternativeMaxForceLeft,
 			beforeAlternativeRight, configAlternativeMaxForceRight);
 		PersistKeyboardFFBStrength();
+		SpeakKeyboardFFBStrength();
 		return;
 	}
 
@@ -398,6 +463,7 @@ static void ApplyKeyboardFFBStrength(FFBStrengthKeyboardAction action)
 		beforeAlternativeRight, configAlternativeMaxForceRight);
 
 	PersistKeyboardFFBStrength();
+	SpeakKeyboardFFBStrength();
 }
 
 static LRESULT CALLBACK FFBStrengthKeyboardHookProc(
