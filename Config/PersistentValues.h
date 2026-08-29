@@ -4,7 +4,6 @@
 #include <sapi.h>
 #include <cstdio>
 #include <cstring>
-#include <cstdarg>
 #include <string>
 
 // Keep the established per-game persistence mappings intact.
@@ -19,7 +18,6 @@ extern int EnableFFBStrengthTextToSpeech;
 static LONG g_ffbStrengthKeyboardThreadStarted = 0;
 static HHOOK g_ffbStrengthKeyboardHook = nullptr;
 static char g_ffbPluginIniPath[MAX_PATH] = {};
-static char g_ffbKeyboardDebugLogPath[MAX_PATH] = {};
 static char g_increaseFFBStrengthKeyName[64] = {};
 static char g_decreaseFFBStrengthKeyName[64] = {};
 static char g_resetFFBStrengthKeyName[64] = {};
@@ -32,54 +30,6 @@ static bool g_resetFFBStrengthKeyDown = false;
 
 static void StartFFBStrengthKeyboardThread();
 void CustomFFBStrengthSetup();
-
-static void FFBKeyboardDebugLog(const char* format, ...)
-{
-	if (g_ffbKeyboardDebugLogPath[0] == '\0')
-		return;
-
-	FILE* file = nullptr;
-	if (fopen_s(&file, g_ffbKeyboardDebugLogPath, "a") != 0 || file == nullptr)
-		return;
-
-	SYSTEMTIME time;
-	GetLocalTime(&time);
-	fprintf(file, "%02u:%02u:%02u.%03u ",
-		time.wHour, time.wMinute, time.wSecond, time.wMilliseconds);
-
-	va_list args;
-	va_start(args, format);
-	vfprintf(file, format, args);
-	va_end(args);
-
-	fputc('\n', file);
-	fclose(file);
-}
-
-static void FFBKeyboardSetupDebugLogPath()
-{
-	if (g_ffbPluginIniPath[0] == '\0')
-	{
-		strcpy_s(g_ffbKeyboardDebugLogPath, ".\\FFBKeyboardDebug.log");
-		return;
-	}
-
-	strcpy_s(g_ffbKeyboardDebugLogPath, g_ffbPluginIniPath);
-	char* slash = strrchr(g_ffbKeyboardDebugLogPath, '\\');
-	char* forwardSlash = strrchr(g_ffbKeyboardDebugLogPath, '/');
-	if (forwardSlash != nullptr && (slash == nullptr || forwardSlash > slash))
-		slash = forwardSlash;
-
-	if (slash != nullptr)
-	{
-		const size_t used = static_cast<size_t>((slash + 1) - g_ffbKeyboardDebugLogPath);
-		strcpy_s(slash + 1, MAX_PATH - used, "FFBKeyboardDebug.log");
-	}
-	else
-	{
-		strcpy_s(g_ffbKeyboardDebugLogPath, ".\\FFBKeyboardDebug.log");
-	}
-}
 
 static int FFBStrengthKeyNameToVirtualKey(const char* keyName)
 {
@@ -181,9 +131,6 @@ struct FFBStrengthKeyboardConfigInitializer
 		if (pathLength == 0 || pathLength >= MAX_PATH)
 			strcpy_s(g_ffbPluginIniPath, ".\\FFBPlugin.ini");
 
-		FFBKeyboardSetupDebugLogPath();
-		DeleteFileA(g_ffbKeyboardDebugLogPath);
-
 		GetPrivateProfileStringA(
 			"Settings", "IncreaseFFBStrengthKey", "",
 			g_increaseFFBStrengthKeyName,
@@ -209,14 +156,6 @@ struct FFBStrengthKeyboardConfigInitializer
 		g_resetFFBStrengthVk =
 			FFBStrengthKeyNameToVirtualKey(g_resetFFBStrengthKeyName);
 
-		FFBKeyboardDebugLog("INIT ini=%s", g_ffbPluginIniPath);
-		FFBKeyboardDebugLog(
-			"BINDINGS increase='%s' vk=%d decrease='%s' vk=%d reset='%s' vk=%d",
-			g_increaseFFBStrengthKeyName, g_increaseFFBStrengthVk,
-			g_decreaseFFBStrengthKeyName, g_decreaseFFBStrengthVk,
-			g_resetFFBStrengthKeyName, g_resetFFBStrengthVk);
-
-		FFBKeyboardDebugLog("INIT starting keyboard thread independently");
 		StartFFBStrengthKeyboardThread();
 	}
 };
@@ -249,17 +188,13 @@ static BOOL FFBPluginSafeWritePrivateProfileStringA(
 static void PersistKeyboardFFBStrength()
 {
 	if (!EnableFFBStrengthPersistence)
-	{
-		FFBKeyboardDebugLog("PERSIST disabled");
 		return;
-	}
 
 	if (AlternativeFFB)
 	{
 		if (CustomAlternativeMaxForceLeft == nullptr ||
 			CustomAlternativeMaxForceRight == nullptr)
 		{
-			FFBKeyboardDebugLog("PERSIST skipped: alternative key is NULL");
 			return;
 		}
 
@@ -267,11 +202,6 @@ static void PersistKeyboardFFBStrength()
 			std::to_string(configAlternativeMaxForceLeft);
 		const std::string rightValue =
 			std::to_string(configAlternativeMaxForceRight);
-
-		FFBKeyboardDebugLog(
-			"PERSIST %s=%s %s=%s",
-			CustomAlternativeMaxForceLeft, leftValue.c_str(),
-			CustomAlternativeMaxForceRight, rightValue.c_str());
 
 		FFBPluginSafeWritePrivateProfileStringA(
 			"Settings",
@@ -288,13 +218,9 @@ static void PersistKeyboardFFBStrength()
 	else
 	{
 		if (CustomMaxForce == nullptr)
-		{
-			FFBKeyboardDebugLog("PERSIST skipped: max-force key is NULL");
 			return;
-		}
 
 		const std::string value = std::to_string(configMaxForce);
-		FFBKeyboardDebugLog("PERSIST %s=%s", CustomMaxForce, value.c_str());
 
 		FFBPluginSafeWritePrivateProfileStringA(
 			"Settings",
@@ -321,9 +247,6 @@ static void SpeakKeyboardFFBStrength()
 		CP_ACP, 0, text, -1,
 		wideText, static_cast<int>(sizeof(wideText) / sizeof(wideText[0]))) == 0)
 	{
-		FFBKeyboardDebugLog(
-			"TTS conversion failed error=%lu",
-			static_cast<unsigned long>(GetLastError()));
 		return;
 	}
 
@@ -342,24 +265,11 @@ static void SpeakKeyboardFFBStrength()
 	{
 		voice->SetRate(3);
 		voice->SetOutput(nullptr, TRUE);
-		const HRESULT speakResult = voice->Speak(
+		voice->Speak(
 			wideText,
 			SPF_PURGEBEFORESPEAK,
 			nullptr);
-
-		FFBKeyboardDebugLog(
-			"TTS max=%d hr=0x%08lx",
-			value,
-			static_cast<unsigned long>(speakResult));
-
 		voice->Release();
-	}
-	else
-	{
-		FFBKeyboardDebugLog(
-			"TTS voice creation failed hr=0x%08lx init=0x%08lx",
-			static_cast<unsigned long>(createResult),
-			static_cast<unsigned long>(initializeResult));
 	}
 
 	if (uninitialize)
@@ -377,18 +287,9 @@ static void ApplyKeyboardFFBStrength(FFBStrengthKeyboardAction action)
 {
 	CustomFFBStrengthSetup();
 
-	const int beforeMaxForce = configMaxForce;
-	const int beforeAlternativeLeft = configAlternativeMaxForceLeft;
-	const int beforeAlternativeRight = configAlternativeMaxForceRight;
-
 	if (action == FFB_STRENGTH_RESET)
 	{
 		DefaultConfigValues();
-		FFBKeyboardDebugLog(
-			"ACTION reset max=%d->%d altL=%d->%d altR=%d->%d",
-			beforeMaxForce, configMaxForce,
-			beforeAlternativeLeft, configAlternativeMaxForceLeft,
-			beforeAlternativeRight, configAlternativeMaxForceRight);
 		PersistKeyboardFFBStrength();
 		SpeakKeyboardFFBStrength();
 		return;
@@ -455,13 +356,6 @@ static void ApplyKeyboardFFBStrength(FFBStrengthKeyboardAction action)
 		}
 	}
 
-	FFBKeyboardDebugLog(
-		"ACTION %s max=%d->%d altL=%d->%d altR=%d->%d",
-		action == FFB_STRENGTH_INCREASE ? "increase" : "decrease",
-		beforeMaxForce, configMaxForce,
-		beforeAlternativeLeft, configAlternativeMaxForceLeft,
-		beforeAlternativeRight, configAlternativeMaxForceRight);
-
 	PersistKeyboardFFBStrength();
 	SpeakKeyboardFFBStrength();
 }
@@ -482,22 +376,12 @@ static LRESULT CALLBACK FFBStrengthKeyboardHookProc(
 			wParam == WM_KEYUP || wParam == WM_SYSKEYUP;
 		const DWORD vk = keyboard->vkCode;
 
-		if (keyDown)
-		{
-			FFBKeyboardDebugLog(
-				"KEYDOWN vk=%lu scan=%lu flags=0x%08lx",
-				static_cast<unsigned long>(keyboard->vkCode),
-				static_cast<unsigned long>(keyboard->scanCode),
-				static_cast<unsigned long>(keyboard->flags));
-		}
-
 		if (g_increaseFFBStrengthVk != 0 &&
 			vk == static_cast<DWORD>(g_increaseFFBStrengthVk))
 		{
 			if (keyDown && !g_increaseFFBStrengthKeyDown)
 			{
 				g_increaseFFBStrengthKeyDown = true;
-				FFBKeyboardDebugLog("MATCH increase");
 				ApplyKeyboardFFBStrength(FFB_STRENGTH_INCREASE);
 			}
 			else if (keyUp)
@@ -512,7 +396,6 @@ static LRESULT CALLBACK FFBStrengthKeyboardHookProc(
 			if (keyDown && !g_decreaseFFBStrengthKeyDown)
 			{
 				g_decreaseFFBStrengthKeyDown = true;
-				FFBKeyboardDebugLog("MATCH decrease");
 				ApplyKeyboardFFBStrength(FFB_STRENGTH_DECREASE);
 			}
 			else if (keyUp)
@@ -527,7 +410,6 @@ static LRESULT CALLBACK FFBStrengthKeyboardHookProc(
 			if (keyDown && !g_resetFFBStrengthKeyDown)
 			{
 				g_resetFFBStrengthKeyDown = true;
-				FFBKeyboardDebugLog("MATCH reset");
 				ApplyKeyboardFFBStrength(FFB_STRENGTH_RESET);
 			}
 			else if (keyUp)
@@ -563,22 +445,13 @@ static bool FFBStrengthPollKey(int virtualKey, bool& wasDown)
 
 static DWORD WINAPI FFBStrengthKeyboardThread(LPVOID)
 {
-	FFBKeyboardDebugLog(
-		"THREAD polling start vk increase=%d decrease=%d reset=%d",
-		g_increaseFFBStrengthVk,
-		g_decreaseFFBStrengthVk,
-		g_resetFFBStrengthVk);
-
 	if (g_increaseFFBStrengthVk == 0 &&
 		g_decreaseFFBStrengthVk == 0 &&
 		g_resetFFBStrengthVk == 0)
 	{
-		FFBKeyboardDebugLog("THREAD abort: no valid bindings");
 		InterlockedExchange(&g_ffbStrengthKeyboardThreadStarted, 0);
 		return 0;
 	}
-
-	FFBKeyboardDebugLog("THREAD polling active");
 
 	while (true)
 	{
@@ -588,7 +461,6 @@ static DWORD WINAPI FFBStrengthKeyboardThread(LPVOID)
 				g_increaseFFBStrengthVk,
 				g_increaseFFBStrengthKeyDown))
 			{
-				FFBKeyboardDebugLog("POLL match increase");
 				ApplyKeyboardFFBStrength(FFB_STRENGTH_INCREASE);
 			}
 
@@ -596,7 +468,6 @@ static DWORD WINAPI FFBStrengthKeyboardThread(LPVOID)
 				g_decreaseFFBStrengthVk,
 				g_decreaseFFBStrengthKeyDown))
 			{
-				FFBKeyboardDebugLog("POLL match decrease");
 				ApplyKeyboardFFBStrength(FFB_STRENGTH_DECREASE);
 			}
 
@@ -604,7 +475,6 @@ static DWORD WINAPI FFBStrengthKeyboardThread(LPVOID)
 				g_resetFFBStrengthVk,
 				g_resetFFBStrengthKeyDown))
 			{
-				FFBKeyboardDebugLog("POLL match reset");
 				ApplyKeyboardFFBStrength(FFB_STRENGTH_RESET);
 			}
 		}
@@ -624,24 +494,18 @@ static void StartFFBStrengthKeyboardThread()
 	if (InterlockedCompareExchange(
 		&g_ffbStrengthKeyboardThreadStarted, 1, 0) != 0)
 	{
-		FFBKeyboardDebugLog("START ignored: thread already started");
 		return;
 	}
 
-	FFBKeyboardDebugLog("START creating keyboard thread");
 	HANDLE thread = CreateThread(
 		nullptr, 0, FFBStrengthKeyboardThread, nullptr, 0, nullptr);
 
 	if (thread != nullptr)
 	{
-		FFBKeyboardDebugLog("START thread created handle=%p", thread);
 		CloseHandle(thread);
 	}
 	else
 	{
-		FFBKeyboardDebugLog(
-			"START CreateThread FAILED error=%lu",
-			static_cast<unsigned long>(GetLastError()));
 		InterlockedExchange(&g_ffbStrengthKeyboardThreadStarted, 0);
 	}
 }
@@ -676,15 +540,6 @@ void CustomFFBStrengthSetup()
 			}
 		}
 	}
-
-	FFBKeyboardDebugLog(
-		"SETUP gameId=%d rom=%s alt=%d key=%s altLeft=%s altRight=%s",
-		configGameId,
-		romname != nullptr ? romname : "<null>",
-		AlternativeFFB,
-		CustomMaxForce != nullptr ? CustomMaxForce : "<null>",
-		CustomAlternativeMaxForceLeft != nullptr ? CustomAlternativeMaxForceLeft : "<null>",
-		CustomAlternativeMaxForceRight != nullptr ? CustomAlternativeMaxForceRight : "<null>");
 
 	StartFFBStrengthKeyboardThread();
 }
