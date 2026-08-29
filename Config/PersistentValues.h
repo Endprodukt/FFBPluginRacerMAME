@@ -12,6 +12,7 @@
 #undef CustomFFBStrengthSetup
 
 extern int StepFFBStrength;
+extern int EnableFFBStrengthDynamicAdjustment;
 
 static LONG g_ffbStrengthKeyboardThreadStarted = 0;
 static HHOOK g_ffbStrengthKeyboardHook = nullptr;
