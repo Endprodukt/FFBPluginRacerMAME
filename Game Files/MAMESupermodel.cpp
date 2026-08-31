@@ -46,6 +46,7 @@ std::string daytonase("daytonase");
 std::string dirtdash("dirtdash");
 std::string dirtdasha("dirtdasha");
 std::string dirtdashj("dirtdashj");
+std::string drivedge("drivedge");
 std::string offroadc("offroadc");
 std::string offroadc4("offroadc4");
 std::string offroadc3("offroadc3");
@@ -214,6 +215,7 @@ std::string RaveRacerNew("RaveRacerNew");
 std::string Konami("Konami");
 std::string hng64("hng64");
 std::string SideBSActive("SideBSActive");
+std::string DriversEdgeActive("DriversEdgeActive");
 
 //Names of FFB Outputs
 std::string digit0("digit0");
@@ -894,6 +896,19 @@ static int ForceSpringStrengthSpeedUp = GetPrivateProfileInt(TEXT("Settings"), T
 static int EnableDamperSpeedUp = GetPrivateProfileInt(TEXT("Settings"), TEXT("EnableDamperSpeedUp"), 0, settingsFilename);
 static int DamperStrengthSpeedUp = GetPrivateProfileInt(TEXT("Settings"), TEXT("DamperStrengthSpeedUp"), 100, settingsFilename);
 
+static int configMinForceDriversEdge = GetPrivateProfileInt(TEXT("Settings"), TEXT("MinForceDriversEdge"), 0, settingsFilename);
+static int configMaxForceDriversEdge = GetPrivateProfileInt(TEXT("Settings"), TEXT("MaxForceDriversEdge"), 100, settingsFilename);
+static int configAlternativeMinForceLeftDriversEdge = GetPrivateProfileInt(TEXT("Settings"), TEXT("AlternativeMinForceLeftDriversEdge"), 0, settingsFilename);
+static int configAlternativeMaxForceLeftDriversEdge = GetPrivateProfileInt(TEXT("Settings"), TEXT("AlternativeMaxForceLeftDriversEdge"), 100, settingsFilename);
+static int configAlternativeMinForceRightDriversEdge = GetPrivateProfileInt(TEXT("Settings"), TEXT("AlternativeMinForceRightDriversEdge"), 0, settingsFilename);
+static int configAlternativeMaxForceRightDriversEdge = GetPrivateProfileInt(TEXT("Settings"), TEXT("AlternativeMaxForceRightDriversEdge"), 100, settingsFilename);
+static int configFeedbackLengthDriversEdge = GetPrivateProfileInt(TEXT("Settings"), TEXT("FeedbackLengthDriversEdge"), 120, settingsFilename);
+static int PowerModeDriversEdge = GetPrivateProfileInt(TEXT("Settings"), TEXT("PowerModeDriversEdge"), 0, settingsFilename);
+static int EnableForceSpringEffectDriversEdge = GetPrivateProfileInt(TEXT("Settings"), TEXT("EnableForceSpringEffectDriversEdge"), 0, settingsFilename);
+static int ForceSpringStrengthDriversEdge = GetPrivateProfileInt(TEXT("Settings"), TEXT("ForceSpringStrengthDriversEdge"), 0, settingsFilename);
+static int EnableDamperDriversEdge = GetPrivateProfileInt(TEXT("Settings"), TEXT("EnableDamperDriversEdge"), 0, settingsFilename);
+static int DamperStrengthDriversEdge = GetPrivateProfileInt(TEXT("Settings"), TEXT("DamperStrengthDriversEdge"), 100, settingsFilename);
+
 static bool init = false;
 static bool initSpring = false;
 static bool EmuName = false;
@@ -945,6 +960,36 @@ std::string wheelA("wheel");
 static int raveracer(int ffRaw);
 static int acedrivertable(int ffRaw);
 int SwapDirection(int direction);
+
+struct DriversEdgeMotor
+{
+	int direction;
+	double strength;
+};
+
+static DriversEdgeMotor decode_driversedge_motor(int raw)
+{
+	// MAME Driver's Edge wheel_motor output is signed -31..+31.
+	if (raw > 31)
+		raw = 31;
+	else if (raw < -31)
+		raw = -31;
+
+	DriversEdgeMotor motor{ 0, 0.0 };
+
+	if (raw > 0)
+	{
+		motor.direction = 1;
+		motor.strength = raw / 31.0;
+	}
+	else if (raw < 0)
+	{
+		motor.direction = -1;
+		motor.strength = (-raw) / 31.0;
+	}
+
+	return motor;
+}
 
 static void FFBGameEffects(EffectConstants* constants, Helpers* helpers, EffectTriggers* triggers, int stateFFB, LPCSTR name)
 {
@@ -1137,6 +1182,44 @@ static void FFBGameEffects(EffectConstants* constants, Helpers* helpers, EffectT
 			{
 				// Stop Constant
 				sendConstant(constants->DIRECTION_FROM_LEFT, 0.0);
+			}
+		}
+	}
+
+	if (RunningFFB == DriversEdgeActive)
+	{
+		if (name == wheel_motor)
+		{
+			auto sendConstant = [&](int direction, double strength)
+				{
+					direction = SwapDirection(direction);
+
+					if (UseConstantInf)
+						triggers->ConstantInf(direction, strength);
+					else
+						triggers->Constant(direction, strength);
+				};
+
+			const DriversEdgeMotor motor = decode_driversedge_motor(stateFFB);
+
+			helpers->log("Driver's Edge wheel_motor: ");
+			std::string ffs = std::to_string(stateFFB);
+			helpers->log((char*)ffs.c_str());
+
+			if (motor.direction == 0)
+			{
+				sendConstant(constants->DIRECTION_FROM_LEFT, 0.0);
+				sendConstant(constants->DIRECTION_FROM_RIGHT, 0.0);
+				return;
+			}
+
+			if (motor.direction > 0)
+			{
+				sendConstant(constants->DIRECTION_FROM_RIGHT, motor.strength);
+			}
+			else
+			{
+				sendConstant(constants->DIRECTION_FROM_LEFT, motor.strength);
 			}
 		}
 	}
@@ -2953,6 +3036,24 @@ void MAMESupermodel::FFBLoop(EffectConstants* constants, Helpers* helpers, Effec
 				DamperStrength = DamperStrengthSideBS2;
 
 				RunningFFB = "SideBSActive";
+			}
+
+			if (romname == drivedge)
+			{
+				configMinForce = configMinForceDriversEdge;
+				configMaxForce = configMaxForceDriversEdge;
+				configAlternativeMinForceLeft = configAlternativeMinForceLeftDriversEdge;
+				configAlternativeMaxForceLeft = configAlternativeMaxForceLeftDriversEdge;
+				configAlternativeMinForceRight = configAlternativeMinForceRightDriversEdge;
+				configAlternativeMaxForceRight = configAlternativeMaxForceRightDriversEdge;
+				configFeedbackLength = configFeedbackLengthDriversEdge;
+				PowerMode = PowerModeDriversEdge;
+				EnableForceSpringEffect = EnableForceSpringEffectDriversEdge;
+				ForceSpringStrength = ForceSpringStrengthDriversEdge;
+				EnableDamper = EnableDamperDriversEdge;
+				DamperStrength = DamperStrengthDriversEdge;
+
+				RunningFFB = "DriversEdgeActive";
 			}
 
 			if (romname == speedup || romname == speedup10 || romname == speedup12 || romname == speedup20 || romname == speedup20a || romname == speedup21)
