@@ -582,7 +582,7 @@ static int ForceSpringStrengthCrusnUSA = GetPrivateProfileInt(TEXT("Settings"), 
 static int EnableDamperCrusnUSA = GetPrivateProfileInt(TEXT("Settings"), TEXT("EnableDamperCrusnUSA"), 0, settingsFilename);
 static int DamperStrengthCrusnUSA = GetPrivateProfileInt(TEXT("Settings"), TEXT("DamperStrengthCrusnUSA"), 100, settingsFilename);
 
-// Cruis'n Exotica (Zeus): MAME exposes the signed motor byte as output "wheel".
+// Cruis'n Exotica (Zeus): accept both "wheel" and "wheel_motor" outputs.
 // The raw game signal is much weaker than the V-Unit games, so use a separate
 // configurable gain. 400% matches the measured Exotica signal range closely.
 static int configFeedbackLengthCrusnExotica = GetPrivateProfileInt(TEXT("Settings"), TEXT("FeedbackLengthCrusnExotica"), 120, settingsFilename);
@@ -1339,7 +1339,7 @@ static void FFBGameEffects(EffectConstants* constants, Helpers* helpers, EffectT
 
 	if (RunningFFB == RacingFullValueExotica)
 	{
-		if (name == wheel)
+		if (name == wheel || name == wheel_motor)
 		{
 			auto sendConstant = [&](int direction, double strength)
 			{
