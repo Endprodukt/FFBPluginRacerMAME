@@ -1363,6 +1363,9 @@ static void FFBGameEffects(EffectConstants* constants, Helpers* helpers, EffectT
 			if (scaledForce > 127) scaledForce = 127;
 			if (scaledForce < -127) scaledForce = -127;
 
+			// Exotica with the correct shifter/wheel DIP needs inverted FFB direction.
+			scaledForce = -scaledForce;
+
 			char WheelActive[256];
 			sprintf(WheelActive, "WheelActiveExotica raw: %i scaled: %i", stateFFB, scaledForce);
 			helpers->log(WheelActive);
