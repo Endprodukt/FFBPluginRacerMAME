@@ -54,6 +54,7 @@ std::string offroadc1("offroadc1");
 std::string crusnusa("crusnusa");
 std::string crusnusa40("crusnusa40");
 std::string crusnusa21("crusnusa21");
+std::string crusnexo("crusnexo");
 std::string calspeed("calspeed");
 std::string calspeeda("calspeeda");
 std::string calspeedb("calspeedb");
@@ -204,6 +205,7 @@ std::string DirtDashFFB("DirtDashFFB");
 std::string NamcoFFBNew("NamcoFFBNew");
 std::string RacingFullValueActive1("RacingFullValueActive1");
 std::string RacingFullValueActive2("RacingFullValueActive2");
+std::string RacingFullValueExotica("RacingFullValueExotica");
 std::string RacingActive1("RacingActive1");
 std::string RacingActive2("RacingActive2");
 std::string OutrunActive("OutrunActive");
@@ -579,6 +581,23 @@ static int EnableForceSpringEffectCrusnUSA = GetPrivateProfileInt(TEXT("Settings
 static int ForceSpringStrengthCrusnUSA = GetPrivateProfileInt(TEXT("Settings"), TEXT("ForceSpringStrengthCrusnUSA"), 0, settingsFilename);
 static int EnableDamperCrusnUSA = GetPrivateProfileInt(TEXT("Settings"), TEXT("EnableDamperCrusnUSA"), 0, settingsFilename);
 static int DamperStrengthCrusnUSA = GetPrivateProfileInt(TEXT("Settings"), TEXT("DamperStrengthCrusnUSA"), 100, settingsFilename);
+
+// Cruis'n Exotica (Zeus): MAME exposes the signed motor byte as output "wheel".
+// The raw game signal is much weaker than the V-Unit games, so use a separate
+// configurable gain. 400% matches the measured Exotica signal range closely.
+static int configFeedbackLengthCrusnExotica = GetPrivateProfileInt(TEXT("Settings"), TEXT("FeedbackLengthCrusnExotica"), 120, settingsFilename);
+static int configMinForceCrusnExotica = GetPrivateProfileInt(TEXT("Settings"), TEXT("MinForceCrusnExotica"), 0, settingsFilename);
+static int configMaxForceCrusnExotica = GetPrivateProfileInt(TEXT("Settings"), TEXT("MaxForceCrusnExotica"), 100, settingsFilename);
+static int configAlternativeMinForceLeftCrusnExotica = GetPrivateProfileInt(TEXT("Settings"), TEXT("AlternativeMinForceLeftCrusnExotica"), 0, settingsFilename);
+static int configAlternativeMaxForceLeftCrusnExotica = GetPrivateProfileInt(TEXT("Settings"), TEXT("AlternativeMaxForceLeftCrusnExotica"), 100, settingsFilename);
+static int configAlternativeMinForceRightCrusnExotica = GetPrivateProfileInt(TEXT("Settings"), TEXT("AlternativeMinForceRightCrusnExotica"), 0, settingsFilename);
+static int configAlternativeMaxForceRightCrusnExotica = GetPrivateProfileInt(TEXT("Settings"), TEXT("AlternativeMaxForceRightCrusnExotica"), 100, settingsFilename);
+static int PowerModeCrusnExotica = GetPrivateProfileInt(TEXT("Settings"), TEXT("PowerModeCrusnExotica"), 0, settingsFilename);
+static int EnableForceSpringEffectCrusnExotica = GetPrivateProfileInt(TEXT("Settings"), TEXT("EnableForceSpringEffectCrusnExotica"), 0, settingsFilename);
+static int ForceSpringStrengthCrusnExotica = GetPrivateProfileInt(TEXT("Settings"), TEXT("ForceSpringStrengthCrusnExotica"), 0, settingsFilename);
+static int EnableDamperCrusnExotica = GetPrivateProfileInt(TEXT("Settings"), TEXT("EnableDamperCrusnExotica"), 0, settingsFilename);
+static int DamperStrengthCrusnExotica = GetPrivateProfileInt(TEXT("Settings"), TEXT("DamperStrengthCrusnExotica"), 100, settingsFilename);
+static int configFFBGainCrusnExotica = GetPrivateProfileInt(TEXT("Settings"), TEXT("FFBGainCrusnExotica"), 400, settingsFilename);
 
 static int configMinForceCalSpeed = GetPrivateProfileInt(TEXT("Settings"), TEXT("MinForceCalSpeed"), 0, settingsFilename);
 static int configMaxForceCalSpeed = GetPrivateProfileInt(TEXT("Settings"), TEXT("MaxForceCalSpeed"), 100, settingsFilename);
@@ -1314,6 +1333,88 @@ static void FFBGameEffects(EffectConstants* constants, Helpers* helpers, EffectT
 			{
 				sendConstant(constants->DIRECTION_FROM_LEFT, 0.0);
 				sendConstant(constants->DIRECTION_FROM_RIGHT, 0.0);
+			}
+		}
+	}
+
+	if (RunningFFB == RacingFullValueExotica)
+	{
+		if (name == wheel)
+		{
+			auto sendConstant = [&](int direction, double strength)
+			{
+				if (UseConstantInf)
+					triggers->ConstantInf(direction, strength);
+				else
+					triggers->Constant(direction, strength);
+			};
+
+			// Exotica writes the motor command as a signed 8-bit value. 0x80 is
+			// neutral, matching the Cruis'n full-value convention used here.
+			int signedForce = static_cast<signed char>(static_cast<unsigned char>(stateFFB));
+			if (signedForce == -128)
+				signedForce = 0;
+
+			int gain = configFFBGainCrusnExotica;
+			if (gain < 0) gain = 0;
+			if (gain > 800) gain = 800;
+
+			int scaledForce = (signedForce * gain) / 100;
+			if (scaledForce > 127) scaledForce = 127;
+			if (scaledForce < -127) scaledForce = -127;
+
+			char WheelActive[256];
+			sprintf(WheelActive, "WheelActiveExotica raw: %i scaled: %i", stateFFB, scaledForce);
+			helpers->log(WheelActive);
+
+			if (scaledForce > 0)
+			{
+				double percentForce = scaledForce / 126.0;
+				if (percentForce > 1.0) percentForce = 1.0;
+
+				if (EnableRumble == 1)
+					triggers->Rumble(percentForce, 0, 100);
+
+				if (AlternativeFFB)
+				{
+					double strength = PowerMode
+						? helpers->PowerFunction(percentForce * 100.0, configAlternativeMinForceLeft, configAlternativeMaxForceLeft, 100) / 100.0
+						: helpers->StrengthFunction(percentForce * 100.0, configAlternativeMinForceLeft, configAlternativeMaxForceLeft, 100) / 100.0;
+					sendConstant(constants->DIRECTION_FROM_LEFT, strength);
+				}
+				else
+				{
+					double strength = PowerMode
+						? helpers->PowerFunction(percentForce * 100.0, configMinForce, configMaxForce, 100) / 100.0
+						: helpers->StrengthFunction(percentForce * 100.0, configMinForce, configMaxForce, 100) / 100.0;
+					sendConstant(constants->DIRECTION_FROM_LEFT, strength);
+				}
+				return;
+			}
+
+			if (scaledForce < 0)
+			{
+				double percentForce = (-scaledForce) / 126.0;
+				if (percentForce > 1.0) percentForce = 1.0;
+
+				if (EnableRumble == 1)
+					triggers->Rumble(0, percentForce, 100);
+
+				if (AlternativeFFB)
+				{
+					double strength = PowerMode
+						? helpers->PowerFunction(percentForce * 100.0, configAlternativeMinForceRight, configAlternativeMaxForceRight, 100) / 100.0
+						: helpers->StrengthFunction(percentForce * 100.0, configAlternativeMinForceRight, configAlternativeMaxForceRight, 100) / 100.0;
+					sendConstant(constants->DIRECTION_FROM_RIGHT, strength);
+				}
+				else
+				{
+					double strength = PowerMode
+						? helpers->PowerFunction(percentForce * 100.0, configMinForce, configMaxForce, 100) / 100.0
+						: helpers->StrengthFunction(percentForce * 100.0, configMinForce, configMaxForce, 100) / 100.0;
+					sendConstant(constants->DIRECTION_FROM_RIGHT, strength);
+				}
+				return;
 			}
 		}
 	}
@@ -2557,6 +2658,23 @@ void MAMESupermodel::FFBLoop(EffectConstants* constants, Helpers* helpers, Effec
 				DamperStrength = DamperStrengthCrusnUSA;
 
 				RunningFFB = "RacingFullValueActive2";
+			}
+
+			if (romname == crusnexo)
+			{
+				configMinForce = configMinForceCrusnExotica;
+				configMaxForce = configMaxForceCrusnExotica;
+				configAlternativeMinForceLeft = configAlternativeMinForceLeftCrusnExotica;
+				configAlternativeMaxForceLeft = configAlternativeMaxForceLeftCrusnExotica;
+				configAlternativeMinForceRight = configAlternativeMinForceRightCrusnExotica;
+				configAlternativeMaxForceRight = configAlternativeMaxForceRightCrusnExotica;
+				configFeedbackLength = configFeedbackLengthCrusnExotica;
+				PowerMode = PowerModeCrusnExotica;
+				EnableForceSpringEffect = EnableForceSpringEffectCrusnExotica;
+				ForceSpringStrength = ForceSpringStrengthCrusnExotica;
+				EnableDamper = EnableDamperCrusnExotica;
+				DamperStrength = DamperStrengthCrusnExotica;
+				RunningFFB = "RacingFullValueExotica";
 			}
 
 			if (romname == calspeed || romname == calspeeda || romname == calspeedb)

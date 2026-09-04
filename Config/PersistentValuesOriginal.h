@@ -1,4 +1,4 @@
-#include <Windows.h>
+﻿#include <Windows.h>
 
 extern int configGameId;
 extern int configMinForce;
@@ -100,6 +100,7 @@ static std::string offroadc1("offroadc1");
 static std::string crusnusa("crusnusa");
 static std::string crusnusa40("crusnusa40");
 static std::string crusnusa21("crusnusa21");
+static std::string crusnexo("crusnexo");
 static std::string calspeed("calspeed");
 static std::string calspeeda("calspeeda");
 static std::string calspeedb("calspeedb");
@@ -476,6 +477,19 @@ void CustomFFBStrengthSetup()
 			else
 			{
 				CustomMaxForce = "MaxForceCrusnUSA";
+			}
+		}
+
+		if (romname == crusnexo)
+		{
+			if (AlternativeFFB == 1)
+			{
+				CustomAlternativeMaxForceLeft = "AlternativeMaxForceLeftCrusnExotica";
+				CustomAlternativeMaxForceRight = "AlternativeMaxForceRightCrusnExotica";
+			}
+			else
+			{
+				CustomMaxForce = "MaxForceCrusnExotica";
 			}
 		}
 
