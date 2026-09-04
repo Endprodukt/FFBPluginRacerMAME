@@ -91,13 +91,19 @@ public:
 #define SDL_HAT_RIGHTUP     (SDL_HAT_RIGHT|SDL_HAT_UP)
 #define SDL_HAT_RIGHTDOWN   (SDL_HAT_RIGHT|SDL_HAT_DOWN)
 #define SDL_HAT_LEFTUP      (SDL_HAT_LEFT|SDL_HAT_UP)
-#define SDL_HAT_LEFTDOWN    (SDL_HAT_LEFT|SDL_HAT_DOWN)
+#define SDL_HAT_LEFTDOWN    (SDL_HAT_DOWN|SDL_HAT_LEFT)
 
 class Helpers {
 public:
 	int enableLogging = 0;
 	// helper functions
 	bool fileExists(char *filename);
+
+	// Force scaling is already applied centrally by Constant/ConstantInf.
+	// These pass-through helpers keep game-side code from applying it twice.
+	double PowerFunction(double value, double, double, double) { return value; }
+	double StrengthFunction(double value, double, double, double) { return value; }
+
 	// logging
 	void log(char *msg);
 	void logInt(int value);
