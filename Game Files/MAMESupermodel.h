@@ -17,4 +17,7 @@ class MAMESupermodel : public Game {
 
 public:
 	void FFBLoop(EffectConstants* constants, Helpers* helpers, EffectTriggers* triggers);
+
+private:
+	void FFBLoopBase(EffectConstants* constants, Helpers* helpers, EffectTriggers* triggers);
 };
