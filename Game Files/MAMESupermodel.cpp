@@ -536,6 +536,19 @@ static int ForceSpringStrengthVirtuaRacing = GetPrivateProfileInt(TEXT("Settings
 static int EnableDamperVirtuaRacing = GetPrivateProfileInt(TEXT("Settings"), TEXT("EnableDamperVirtuaRacing"), 0, settingsFilename);
 static int DamperStrengthVirtuaRacing = GetPrivateProfileInt(TEXT("Settings"), TEXT("DamperStrengthVirtuaRacing"), 100, settingsFilename);
 
+static int configMinForceSuperMonacoGP = GetPrivateProfileInt(TEXT("Settings"), TEXT("MinForceSuperMonacoGP"), 0, settingsFilename);
+static int configMaxForceSuperMonacoGP = GetPrivateProfileInt(TEXT("Settings"), TEXT("MaxForceSuperMonacoGP"), 100, settingsFilename);
+static int configAlternativeMinForceLeftSuperMonacoGP = GetPrivateProfileInt(TEXT("Settings"), TEXT("AlternativeMinForceLeftSuperMonacoGP"), 0, settingsFilename);
+static int configAlternativeMaxForceLeftSuperMonacoGP = GetPrivateProfileInt(TEXT("Settings"), TEXT("AlternativeMaxForceLeftSuperMonacoGP"), 100, settingsFilename);
+static int configAlternativeMinForceRightSuperMonacoGP = GetPrivateProfileInt(TEXT("Settings"), TEXT("AlternativeMinForceRightSuperMonacoGP"), 0, settingsFilename);
+static int configAlternativeMaxForceRightSuperMonacoGP = GetPrivateProfileInt(TEXT("Settings"), TEXT("AlternativeMaxForceRightSuperMonacoGP"), 100, settingsFilename);
+static int configFeedbackLengthSuperMonacoGP = GetPrivateProfileInt(TEXT("Settings"), TEXT("FeedbackLengthSuperMonacoGP"), 120, settingsFilename);
+static int EnableForceSpringEffectSuperMonacoGP = GetPrivateProfileInt(TEXT("Settings"), TEXT("EnableForceSpringEffectSuperMonacoGP"), 0, settingsFilename);
+static int ForceSpringStrengthSuperMonacoGP = GetPrivateProfileInt(TEXT("Settings"), TEXT("ForceSpringStrengthSuperMonacoGP"), 0, settingsFilename);
+static int SinePeriodSuperMonacoGP = GetPrivateProfileInt(TEXT("Settings"), TEXT("SinePeriodSuperMonacoGP"), 100, settingsFilename);
+static int SineFadePeriodSuperMonacoGP = GetPrivateProfileInt(TEXT("Settings"), TEXT("SineFadePeriodSuperMonacoGP"), 0, settingsFilename);
+static int SineStrengthSuperMonacoGP = GetPrivateProfileInt(TEXT("Settings"), TEXT("SineStrengthSuperMonacoGP"), 100, settingsFilename);
+
 static int configMinForceSFRush = GetPrivateProfileInt(TEXT("Settings"), TEXT("MinForceSFRush"), 0, settingsFilename);
 static int configMaxForceSFRush = GetPrivateProfileInt(TEXT("Settings"), TEXT("MaxForceSFRush"), 100, settingsFilename);
 static int configAlternativeMinForceLeftSFRush = GetPrivateProfileInt(TEXT("Settings"), TEXT("AlternativeMinForceLeftSFRush"), 0, settingsFilename);
@@ -1058,12 +1071,16 @@ static void FFBGameEffects(EffectConstants* constants, Helpers* helpers, EffectT
 		{
 			// Upright shaker speed: lamp2 = 1, lamp0 = 2, lamp1 = 4.
 			const int rumbleLevel = smgpLamp2 | (smgpLamp0 << 1) | (smgpLamp1 << 2);
-			static const UINT16 periodByLevel[8] = { 0, 80, 68, 58, 49, 42, 36, 31 };
 
 			if (rumbleLevel == 0)
+			{
 				triggers->Sine(0, 0, 0.0);
+			}
 			else
-				triggers->Sine(periodByLevel[rumbleLevel], 0, rumbleLevel / 7.0);
+			{
+				const double levelStrength = (SineStrength / 100.0) * (rumbleLevel / 7.0);
+				triggers->Sine(SinePeriod, SineFadePeriod, levelStrength);
+			}
 		}
 	}
 
@@ -2473,6 +2490,19 @@ void MAMESupermodel::FFBLoop(EffectConstants* constants, Helpers* helpers, Effec
 				romname == smgpd || romname == smgp6d || romname == smgp5d ||
 				romname == smgpud || romname == smgpu1d || romname == smgpu2d || romname == smgpjd)
 			{
+				configMinForce = configMinForceSuperMonacoGP;
+				configMaxForce = configMaxForceSuperMonacoGP;
+				configAlternativeMinForceLeft = configAlternativeMinForceLeftSuperMonacoGP;
+				configAlternativeMaxForceLeft = configAlternativeMaxForceLeftSuperMonacoGP;
+				configAlternativeMinForceRight = configAlternativeMinForceRightSuperMonacoGP;
+				configAlternativeMaxForceRight = configAlternativeMaxForceRightSuperMonacoGP;
+				configFeedbackLength = configFeedbackLengthSuperMonacoGP;
+				EnableForceSpringEffect = EnableForceSpringEffectSuperMonacoGP;
+				ForceSpringStrength = ForceSpringStrengthSuperMonacoGP;
+				SinePeriod = SinePeriodSuperMonacoGP;
+				SineFadePeriod = SineFadePeriodSuperMonacoGP;
+				SineStrength = SineStrengthSuperMonacoGP;
+
 				RunningFFB = "SuperMonacoGPActive";
 			}
 
