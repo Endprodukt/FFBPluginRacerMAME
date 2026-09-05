@@ -259,14 +259,10 @@ std::string Bank_Motor_Speed("Bank_Motor_Speed");
 std::string Bank_Motor_Direction("Bank_Motor_Direction");
 std::string bank_motor_position("bank_motor_position");
 std::string genout2("genout2");
-std::string lamp0("lamp0");
-std::string lamp1("lamp1");
-std::string lamp2("lamp2");
-std::string lamp3("lamp3");
-std::string lamp4("lamp4");
-std::string lamp5("lamp5");
-std::string lamp6("lamp6");
-std::string lamp7("lamp7");
+std::string lamp0("mainpcb:lamp0");
+std::string lamp1("mainpcb:lamp1");
+std::string lamp2("mainpcb:lamp2");
+
 
 HINSTANCE ProcDLL = NULL;
 extern int joystick_index1;
