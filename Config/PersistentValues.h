@@ -541,5 +541,37 @@ void CustomFFBStrengthSetup()
 		}
 	}
 
+	if (configGameId == 22 && romname != nullptr)
+	{
+		if (strcmp(romname, "smgp") == 0 ||
+			strcmp(romname, "smgp6") == 0 ||
+			strcmp(romname, "smgp5") == 0 ||
+			strcmp(romname, "smgpu") == 0 ||
+			strcmp(romname, "smgpu1") == 0 ||
+			strcmp(romname, "smgpu2") == 0 ||
+			strcmp(romname, "smgpj") == 0 ||
+			strcmp(romname, "smgpja") == 0 ||
+			strcmp(romname, "smgpd") == 0 ||
+			strcmp(romname, "smgp6d") == 0 ||
+			strcmp(romname, "smgp5d") == 0 ||
+			strcmp(romname, "smgpud") == 0 ||
+			strcmp(romname, "smgpu1d") == 0 ||
+			strcmp(romname, "smgpu2d") == 0 ||
+			strcmp(romname, "smgpjd") == 0)
+		{
+			if (AlternativeFFB == 1)
+			{
+				CustomAlternativeMaxForceLeft =
+					"AlternativeMaxForceLeftSuperMonacoGP";
+				CustomAlternativeMaxForceRight =
+					"AlternativeMaxForceRightSuperMonacoGP";
+			}
+			else
+			{
+				CustomMaxForce = "MaxForceSuperMonacoGP";
+			}
+		}
+	}
+
 	StartFFBStrengthKeyboardThread();
 }

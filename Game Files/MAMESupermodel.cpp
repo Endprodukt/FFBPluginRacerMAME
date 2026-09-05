@@ -3288,8 +3288,20 @@ void MAMESupermodel::FFBLoop(EffectConstants* constants, Helpers* helpers, Effec
 
 			if (rumbleLevel > 0)
 			{
+				// The original upright has seven motor speed stages. Keep the
+				// configured SinePeriod as the stage-1 base and progressively
+				// shorten the period as the motor stage rises.
+				static const double periodScale[8] =
+				{
+					0.0, 1.00, 0.80, 0.65, 0.52, 0.42, 0.34, 0.28
+				};
+
+				int stagePeriod = static_cast<int>((SinePeriod * periodScale[rumbleLevel]) + 0.5);
+				if (stagePeriod < 1)
+					stagePeriod = 1;
+
 				const double levelStrength = (SineStrength / 100.0) * (rumbleLevel / 7.0);
-				triggers->Sine(SinePeriod, SineFadePeriod, levelStrength);
+				triggers->Sine(static_cast<UINT16>(stagePeriod), SineFadePeriod, levelStrength);
 			}
 			else
 			{
