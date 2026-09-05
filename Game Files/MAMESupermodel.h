@@ -13,6 +13,8 @@ along with FFB Arcade Plugin.If not, see < https://www.gnu.org/licenses/>.
 
 #pragma once
 #include "../Common Files/Game.h"
+#include "../Config/MAMESupermodelAutoIni.h"
+
 class MAMESupermodel : public Game {
 
 public:
