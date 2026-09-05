@@ -1045,39 +1045,14 @@ static void FFBGameEffects(EffectConstants* constants, Helpers* helpers, EffectT
 {
 	if (RunningFFB == SuperMonacoGPActive)
 	{
-		bool rumbleChanged = false;
-
+		// MAME output callbacks only update the current 3-bit shaker stage.
+		// FFBLoop keeps the periodic effect running continuously.
 		if (name == lamp0)
-		{
 			smgpLamp0 = stateFFB ? 1 : 0;
-			rumbleChanged = true;
-		}
 		else if (name == lamp1)
-		{
 			smgpLamp1 = stateFFB ? 1 : 0;
-			rumbleChanged = true;
-		}
 		else if (name == lamp2)
-		{
 			smgpLamp2 = stateFFB ? 1 : 0;
-			rumbleChanged = true;
-		}
-
-		if (rumbleChanged)
-		{
-			// Upright shaker speed: lamp2 = 1, lamp0 = 2, lamp1 = 4.
-			const int rumbleLevel = smgpLamp2 | (smgpLamp0 << 1) | (smgpLamp1 << 2);
-
-			if (rumbleLevel == 0)
-			{
-				triggers->Sine(0, 0, 0.0);
-			}
-			else
-			{
-				const double levelStrength = (SineStrength / 100.0) * (rumbleLevel / 7.0);
-				triggers->Sine(SinePeriod, SineFadePeriod, levelStrength);
-			}
-		}
 	}
 
 	if (RunningFFB == NamcoFFBNew) // Ace Driver
@@ -3305,6 +3280,22 @@ void MAMESupermodel::FFBLoop(EffectConstants* constants, Helpers* helpers, Effec
 	{
 		if (RunningFFB > 0 && EnableDamper)
 			triggers->Damper(DamperStrength / 100.0);
+
+		if (RunningFFB == SuperMonacoGPActive)
+		{
+			// Upright shaker speed: lamp2 = 1, lamp0 = 2, lamp1 = 4.
+			const int rumbleLevel = smgpLamp2 | (smgpLamp0 << 1) | (smgpLamp1 << 2);
+
+			if (rumbleLevel > 0)
+			{
+				const double levelStrength = (SineStrength / 100.0) * (rumbleLevel / 7.0);
+				triggers->Sine(SinePeriod, SineFadePeriod, levelStrength);
+			}
+			else
+			{
+				triggers->Sine(0, 0, 0.0);
+			}
+		}
 
 		if (RunningFFB == RacingActive1) //Outrunners,Turbo Outrun,CBombers,DAxle
 		{
