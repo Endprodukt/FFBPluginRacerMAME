@@ -29,6 +29,21 @@ std::string acedrive("acedrive");
 std::string acedrvrw("acedrvrw");
 std::string vformula("vformula");
 std::string vr("vr");
+std::string smgp("smgp");
+std::string smgp6("smgp6");
+std::string smgp5("smgp5");
+std::string smgpu("smgpu");
+std::string smgpu1("smgpu1");
+std::string smgpu2("smgpu2");
+std::string smgpj("smgpj");
+std::string smgpja("smgpja");
+std::string smgpd("smgpd");
+std::string smgp6d("smgp6d");
+std::string smgp5d("smgp5d");
+std::string smgpud("smgpud");
+std::string smgpu1d("smgpu1d");
+std::string smgpu2d("smgpu2d");
+std::string smgpjd("smgpjd");
 std::string sfrush("sfrush");
 std::string sfrushrk("sfrushrk");
 std::string sfrushrkwo("sfrushrkwo");
@@ -200,6 +215,7 @@ std::string sidebs2ja("sidebs2ja");
 
 //Our string to load game from
 std::string VirtuaRacingActive("VirtuaRacingActive");
+std::string SuperMonacoGPActive("SuperMonacoGPActive");
 std::string HardDrivinActive("HardDrivinActive");
 std::string DirtDashFFB("DirtDashFFB");
 std::string NamcoFFBNew("NamcoFFBNew");
@@ -243,6 +259,9 @@ std::string Bank_Motor_Speed("Bank_Motor_Speed");
 std::string Bank_Motor_Direction("Bank_Motor_Direction");
 std::string bank_motor_position("bank_motor_position");
 std::string genout2("genout2");
+std::string lamp0("lamp0");
+std::string lamp1("lamp1");
+std::string lamp2("lamp2");
 std::string lamp3("lamp3");
 std::string lamp4("lamp4");
 std::string lamp5("lamp5");
@@ -970,6 +989,9 @@ int stateFFB;
 int stateFFB2;
 int stateFFB3;
 int stateFFBDevice2;
+int smgpLamp0 = 0;
+int smgpLamp1 = 0;
+int smgpLamp2 = 0;
 double Divide;
 static INT_PTR FFBAddress;
 static UINT8 ff;
@@ -1012,6 +1034,39 @@ static DriversEdgeMotor decode_driversedge_motor(int raw)
 
 static void FFBGameEffects(EffectConstants* constants, Helpers* helpers, EffectTriggers* triggers, int stateFFB, LPCSTR name)
 {
+	if (RunningFFB == SuperMonacoGPActive)
+	{
+		bool rumbleChanged = false;
+
+		if (name == lamp0)
+		{
+			smgpLamp0 = stateFFB ? 1 : 0;
+			rumbleChanged = true;
+		}
+		else if (name == lamp1)
+		{
+			smgpLamp1 = stateFFB ? 1 : 0;
+			rumbleChanged = true;
+		}
+		else if (name == lamp2)
+		{
+			smgpLamp2 = stateFFB ? 1 : 0;
+			rumbleChanged = true;
+		}
+
+		if (rumbleChanged)
+		{
+			// Upright shaker speed: lamp2 = 1, lamp0 = 2, lamp1 = 4.
+			const int rumbleLevel = smgpLamp2 | (smgpLamp0 << 1) | (smgpLamp1 << 2);
+			static const UINT16 periodByLevel[8] = { 0, 80, 68, 58, 49, 42, 36, 31 };
+
+			if (rumbleLevel == 0)
+				triggers->Sine(0, 0, 0.0);
+			else
+				triggers->Sine(periodByLevel[rumbleLevel], 0, rumbleLevel / 7.0);
+		}
+	}
+
 	if (RunningFFB == NamcoFFBNew) // Ace Driver
 	{
 		if (name == mcuout3)
@@ -2410,6 +2465,15 @@ void MAMESupermodel::FFBLoop(EffectConstants* constants, Helpers* helpers, Effec
 				DamperStrength = DamperStrengthVirtuaRacing;
 
 				RunningFFB = "VirtuaRacingActive";
+			}
+
+			if (romname == smgp || romname == smgp6 || romname == smgp5 ||
+				romname == smgpu || romname == smgpu1 || romname == smgpu2 ||
+				romname == smgpj || romname == smgpja ||
+				romname == smgpd || romname == smgp6d || romname == smgp5d ||
+				romname == smgpud || romname == smgpu1d || romname == smgpu2d || romname == smgpjd)
+			{
+				RunningFFB = "SuperMonacoGPActive";
 			}
 
 			if (romname == roadedge)
