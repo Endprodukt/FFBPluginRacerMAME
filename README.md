@@ -66,19 +66,21 @@ Ensure either MAME32.dll or MAME64.dll is with FFB Plugin files in MAME folder d
 - Cisco Heat
 - Cruis'n USA
 - Cruis'n World
-- Cruis'n Exotica (set Wheel Invert to "On", game type "Dedicated" and Cabinet to "sitdown")
-- Daytona USA
+- Cruis'n Exotica** (set Wheel Invert to "On", game type "Dedicated" and Cabinet to "sitdown")
+- Daytona USA**
 - Dirt Dash
+- Drivers Edge**
 - F-1 Grand Prix Star
 - F-1 Grand Prix Star II
 - GTI Club
 - Hard Drivin'
 - Hyperdrive
+- Indy 500**
 - Midnight Run
 - Outrun
 - OffRoad Challenge
 - Outrunners
-- Overrev (need to change output mode in service)
+- Over Rev** (need to change output mode in service)
 - Power Drift
 - Race Drivin'
 - Racing Jam
@@ -88,13 +90,14 @@ Ensure either MAME32.dll or MAME64.dll is with FFB Plugin files in MAME folder d
 - San Francisco Rush
 - San Francisco Rush The Rock
 - San Francisco Rush 2049
-- Sega Rally Championship
-- Sega Touring Car Championship
+- Sega Rally Championship**
+- Sega Touring Car Championship**
 (- Side By Side* (READ INFO!))
 (- Side By Side 2* (READ INFO!))
-- Super GT 24h (output works but analog input is broken)
+- Speed Up**
+- Super GT 24h** (output works but analog input is broken)
 - Super Monaco GP (set game to sitdown/upright, not deluxe. Play with the sine length value until you get a nice increase of strength among the 7 values in the test menu)
-- Thrill Drive
+- Thrill Drive**
 - Turbo Outrun
 - Vapor TRX
 - Virtua Racing (CHANGE TO UPRIGHT CABINET)
@@ -105,6 +108,8 @@ SIDE BY SIDE INFO: OVERCLOCK DOESN'T SEEM TO WORK ANYMORE. I DON'T CONSIDER THES
 
 * Side By Side and Side By Side 2 information: 
 Activate Cheats in Mame and press ^ in game to show sliders. Go to CPU Overclock. Mine is set at 240% for now as everything above that can't be handled by my CPU (13600k at 5.4ghz). It makes it very playable here but your outcome might vary.
+
+** Requires my special Mame fork to work!
 
 Find the highest number you can set for your computer and restart the game. Immediately pause, set the CPU Overclock, close the slider and press shift+f6 for a quicksave. This will automaticaly set the overclock settings as they won't be saved by mame.
 
