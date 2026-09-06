@@ -64,8 +64,9 @@ Ensure either MAME32.dll or MAME64.dll is with FFB Plugin files in MAME folder d
 - California Speed
 - Chase Bombers
 - Cisco Heat
-- Crusn'USA
-- Crusn' World
+- Cruis'n USA
+- Cruis'n World
+- Cruis'n World (set Wheel Invert to "On", game type "Dedicated" and Cabinet to "sitdown")
 - Daytona USA
 - Dirt Dash
 - F-1 Grand Prix Star
