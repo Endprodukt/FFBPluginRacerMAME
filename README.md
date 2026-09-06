@@ -66,7 +66,7 @@ Ensure either MAME32.dll or MAME64.dll is with FFB Plugin files in MAME folder d
 - Cisco Heat
 - Cruis'n USA
 - Cruis'n World
-- Cruis'n World (set Wheel Invert to "On", game type "Dedicated" and Cabinet to "sitdown")
+- Cruis'n Exotica (set Wheel Invert to "On", game type "Dedicated" and Cabinet to "sitdown")
 - Daytona USA
 - Dirt Dash
 - F-1 Grand Prix Star
@@ -93,6 +93,7 @@ Ensure either MAME32.dll or MAME64.dll is with FFB Plugin files in MAME folder d
 (- Side By Side* (READ INFO!))
 (- Side By Side 2* (READ INFO!))
 - Super GT 24h (output works but analog input is broken)
+- Super Monaco GP (set game to sitdown/upright, not deluxe. Play with the sine length value until you get a nice increase of strength among the 7 values in the test menu)
 - Thrill Drive
 - Turbo Outrun
 - Vapor TRX
