@@ -1,11 +1,37 @@
 #pragma once
 #include <Windows.h>
+#include <cstring>
+#include "SDL.h"
 #include "MinHook.h"
+
+using ConstantInfFunction = void(*)(int direction, double strength);
+inline void DispatchConstantInf(int direction, double strength, ConstantInfFunction fallback);
+
+struct ConstantInfTrigger
+{
+	ConstantInfFunction function = nullptr;
+
+	ConstantInfTrigger& operator=(ConstantInfFunction value)
+	{
+		function = value;
+		return *this;
+	}
+
+	void operator()(int direction, double strength) const
+	{
+		DispatchConstantInf(direction, strength, function);
+	}
+
+	operator ConstantInfFunction() const
+	{
+		return function;
+	}
+};
 
 // struct
 struct EffectTriggers {
 	void(*Constant)(int direction, double strength);
-	void(*ConstantInf)(int direction, double strength);
+	ConstantInfTrigger ConstantInf;
 	void(*Spring)(double strength);
 	void(*Friction)(double strength);
 	void(*Sine)(UINT16 period, UINT16 fadePeriod, double strength);
@@ -46,6 +72,56 @@ public:
 	int effect_sawtoothdown_id = -1;
 	int effect_triangle_id = -1;
 };
+
+// Global haptic state lives in DllMain.cpp. The dispatch wrapper below keeps
+// the existing ConstantInf behavior for every game except California Speed.
+extern SDL_Haptic* haptic;
+extern EffectCollection effects;
+extern bool isConstantEffectRunning;
+extern int configFeedbackLength;
+extern char* romname;
+
+inline void DispatchConstantInf(int direction, double strength, ConstantInfFunction fallback)
+{
+	const bool isCaliforniaSpeed = romname != nullptr &&
+		(std::strcmp(romname, "calspeed") == 0 ||
+		 std::strcmp(romname, "calspeeda") == 0 ||
+		 std::strcmp(romname, "calspeedb") == 0);
+
+	// California Speed crosses through raw motor value 0 while changing force
+	// direction. For this test, preserve the running ConstantInf effect and
+	// update it to an exact zero level instead of stopping/restarting the effect.
+	// All other games continue through the original ConstantInf function.
+	if (isCaliforniaSpeed && strength == 0.0)
+	{
+		if (haptic == nullptr || effects.effect_constant_id < 0)
+		{
+			isConstantEffectRunning = false;
+			return;
+		}
+
+		SDL_HapticEffect tempEffect;
+		SDL_memset(&tempEffect, 0, sizeof(SDL_HapticEffect));
+		tempEffect.type = SDL_HAPTIC_CONSTANT;
+		tempEffect.constant.direction.type = SDL_HAPTIC_CARTESIAN;
+		tempEffect.constant.direction.dir[0] = direction;
+		tempEffect.constant.length = configFeedbackLength;
+		tempEffect.constant.delay = 0;
+		tempEffect.constant.level = 0;
+
+		SDL_HapticUpdateEffect(haptic, effects.effect_constant_id, &tempEffect);
+
+		if (!isConstantEffectRunning)
+		{
+			SDL_HapticRunEffect(haptic, effects.effect_constant_id, SDL_HAPTIC_INFINITY);
+			isConstantEffectRunning = true;
+		}
+		return;
+	}
+
+	if (fallback != nullptr)
+		fallback(direction, strength);
+}
 
 class EffectConstants {
 public:
