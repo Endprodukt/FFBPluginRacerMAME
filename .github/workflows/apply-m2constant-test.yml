@@ -1,0 +1,127 @@
+name: Apply M2 constant-force test path
+
+on:
+  push:
+    branches:
+      - test/m2-constant-path
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: test/m2-constant-path
+
+      - name: Patch MAME/Supermodel FFB routing
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("Game Files/MAMESupermodel.cpp")
+          text = path.read_text(encoding="utf-8-sig")
+
+          old_decl = 'std::string m2new("m2new");'
+          new_decl = old_decl + '\nstd::string m2constant("m2constant");'
+          if text.count(old_decl) != 1:
+              raise SystemExit("m2new declaration marker not found exactly once")
+          text = text.replace(old_decl, new_decl, 1)
+
+          marker = '\n\tif (RunningFFB == m2new) // Mame games using all values \n\t{'
+          if text.count(marker) != 1:
+              raise SystemExit("m2new handler marker not found exactly once")
+
+          new_handler = r'''
+	if (RunningFFB == m2constant) // Model 2 constant-torque drive boards
+	{
+		if (name == wheel_motor)
+		{
+			auto sendConstant = [&](int direction, double strength)
+				{
+					if (UseConstantInf)
+						triggers->ConstantInf(direction, strength);
+					else
+						triggers->Constant(direction, strength);
+				};
+
+			helpers->log("got M2 constant value: ");
+			std::string ffs = std::to_string(stateFFB);
+			helpers->log((char*)ffs.c_str());
+
+			// The raw Model 2 drive-board stream contains many non-motor bytes.
+			// Only the documented roll-left/right ranges are constant-torque commands.
+			// Ignore every other byte so it cannot interrupt an active constant force.
+			if (stateFFB >= 0x50 && stateFFB <= 0x57)
+			{
+				double percentForce = (stateFFB - 0x4F) / 8.0;
+				sendConstant(constants->DIRECTION_FROM_RIGHT, percentForce);
+			}
+			else if (stateFFB >= 0x60 && stateFFB <= 0x67)
+			{
+				double percentForce = (stateFFB - 0x5F) / 8.0;
+				sendConstant(constants->DIRECTION_FROM_LEFT, percentForce);
+			}
+			else if (stateFFB == 0x00)
+			{
+				// Explicit board idle/off: clear any held constant force.
+				sendConstant(constants->DIRECTION_FROM_LEFT, 0.0);
+				sendConstant(constants->DIRECTION_FROM_RIGHT, 0.0);
+			}
+		}
+	}
+'''
+          text = text.replace(marker, new_handler + marker, 1)
+
+          def route_between(start_marker, end_marker, game_name):
+              global text
+              start = text.find(start_marker)
+              if start < 0:
+                  raise SystemExit(f"start marker not found for {game_name}")
+              end = text.find(end_marker, start)
+              if end < 0:
+                  raise SystemExit(f"end marker not found for {game_name}")
+              block = text[start:end]
+              old = 'RunningFFB = "m2new";'
+              if block.count(old) != 1:
+                  raise SystemExit(f"expected one m2new route for {game_name}, found {block.count(old)}")
+              block = block.replace(old, 'RunningFFB = "m2constant";', 1)
+              text = text[:start] + block + text[end:]
+
+          route_between(
+              '\t\t\tif (romname == overrev || romname == overrevba || romname == overrevb)',
+              '\n\t\t\tif (romname == vr)',
+              'Over Rev')
+
+          route_between(
+              '\t\t\tif (romname == indy500 || romname == indy500d || romname == indy500to)',
+              '\n\t\t\tif (romname == sgt24h)',
+              'Indy 500')
+
+          route_between(
+              '\t\t\tif (romname == sgt24h)',
+              '\n\t\t\tif (romname == srallyc',
+              'Super GT 24h')
+
+          path.write_text(text, encoding="utf-8-sig")
+          PY
+
+      - name: Verify patch
+        shell: bash
+        run: |
+          grep -n 'm2constant' 'Game Files/MAMESupermodel.cpp'
+          git diff --check
+          test "$(grep -c 'RunningFFB = "m2constant";' 'Game Files/MAMESupermodel.cpp')" -eq 3
+
+      - name: Commit test path
+        shell: bash
+        run: |
+          rm -f .github/workflows/apply-m2constant-test.yml
+          git config user.name "ChatGPT"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add 'Game Files/MAMESupermodel.cpp' .github/workflows/apply-m2constant-test.yml
+          git commit -m "Add Model 2 constant-force test path"
+          git push origin HEAD:test/m2-constant-path
