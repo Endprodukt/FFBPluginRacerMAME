@@ -53,7 +53,7 @@ jobs:
 			helpers->log((char*)ffs.c_str());
 
 			// The raw Model 2 drive-board stream contains many non-motor bytes.
-			// Only the documented roll-left/right ranges are constant-torque commands.
+			// Only the roll-left/right command ranges are constant-torque commands.
 			// Ignore every other byte so it cannot interrupt an active constant force.
 			if (stateFFB >= 0x50 && stateFFB <= 0x57)
 			{
@@ -119,9 +119,9 @@ jobs:
       - name: Commit test path
         shell: bash
         run: |
-          rm -f .github/workflows/apply-m2constant-test.yml
+          rm -f .github/workflows/apply-m2constant-test.yml .github/m2constant-trigger
           git config user.name "ChatGPT"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add 'Game Files/MAMESupermodel.cpp' .github/workflows/apply-m2constant-test.yml
+          git add -A
           git commit -m "Add Model 2 constant-force test path"
           git push origin HEAD:test/m2-constant-path
