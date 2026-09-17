@@ -56,8 +56,8 @@ inline void M2ConstantSend(Sender& sender, bool active, int raw, int direction, 
 	M2ConstantSend(sendConstant, M2_CONSTANT_PATH_ACTIVE, stateFFB, direction, strength)
 
 // These games use the constant-torque path. Keep the existing M2 New decoder
-// intact for the other Model 2 games, but suppress its synthetic effect types
-// for the constant-torque games.
+// intact for the other Model 2 games, but suppress all non-constant effects
+// for the constant-torque test games.
 #define Spring(strength) \
 	Spring(M2ConstantFilterOtherEffect(M2_CONSTANT_PATH_ACTIVE, strength))
 #define Friction(strength) \
@@ -67,3 +67,5 @@ inline void M2ConstantSend(Sender& sender, bool active, int raw, int direction, 
 #define Rumble(lowfrequency, highfrequency, length) \
 	Rumble(M2ConstantFilterOtherEffect(M2_CONSTANT_PATH_ACTIVE, lowfrequency), \
 		M2ConstantFilterOtherEffect(M2_CONSTANT_PATH_ACTIVE, highfrequency), length)
+#define Damper(strength) \
+	Damper(M2ConstantFilterOtherEffect(M2_CONSTANT_PATH_ACTIVE, strength))
